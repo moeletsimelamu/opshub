@@ -1,0 +1,184 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="page-subtitle" aria-live="polite">
+        @if (data()) {
+          Live figures as of {{ asOf() }}
+        } @else {
+          &nbsp;
+        }
+      </p>
+    </div>
+    <button type="button" class="btn btn-secondary" [disabled]="state().kind === 'loading'" (click)="refresh()">
+      @if (state().kind === 'loading' && data()) {
+        <span class="spinner" aria-hidden="true"></span>
+      } @else {
+        <app-icon name="refresh" />
+      }
+      Refresh
+    </button>
+  </header>
+
+  @if (state().kind === 'error') {
+    <div class="banner banner-error" role="alert">
+      <app-icon name="alert" />
+      <div class="banner-body">
+        <p class="banner-title">The dashboard couldn’t be loaded</p>
+        <p>{{ $any(state()).error.message }}</p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="refresh()"><app-icon name="refresh" /> Try again</button>
+    </div>
+  } @else if (!data()) {
+    <div class="loading" aria-busy="true">
+      <p class="sr-only" role="status">Loading the dashboard…</p>
+      <div class="panel stats skeleton-stats">
+        @for (i of [1, 2, 3, 4, 5]; track i) {
+          <div class="stat"><span class="skeleton" style="width: 60%"></span><span class="skeleton" style="width: 40%; height: 26px"></span></div>
+        }
+      </div>
+      <div class="grid-2">
+        <div class="panel skeleton-panel"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+        <div class="panel skeleton-panel"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+      </div>
+    </div>
+  } @else {
+    @let d = data()!;
+
+    @if (d.totals.total === 0) {
+      <div class="panel">
+        <app-empty-state heading="No tickets yet" description="Figures appear here as soon as the first problem is reported." />
+      </div>
+    } @else {
+      <!-- ---------- Stat strip ---------- -->
+      <section class="panel stats" aria-label="Key figures" [class.is-refreshing]="state().kind === 'loading'">
+        <a class="stat link" routerLink="/tickets" [queryParams]="{ view: 'active' }">
+          <span class="stat-label">Open tickets</span>
+          <span class="stat-value tabular">{{ d.totals.open }}</span>
+          <span class="stat-meta">of {{ d.totals.total }} logged</span>
+        </a>
+        <a class="stat link" routerLink="/tickets" [queryParams]="{ view: 'triage' }">
+          <span class="stat-label">Needs triage</span>
+          <span class="stat-value tabular" [class.attention]="d.totals.needsTriage > 0">{{ d.totals.needsTriage }}</span>
+          <span class="stat-meta">open, nobody assigned</span>
+        </a>
+        <div class="stat">
+          <span class="stat-label">Waiting for requester</span>
+          <span class="stat-value tabular">{{ d.totals.waitingForRequester }}</span>
+          <span class="stat-meta">{{ d.totals.awaitingConfirmation }} resolved, awaiting confirmation</span>
+        </div>
+        <a class="stat link" routerLink="/tickets" [queryParams]="{ view: 'active', priority: 'Critical' }">
+          <span class="stat-label">Critical open</span>
+          <span class="stat-value tabular" [class.critical]="d.totals.criticalOpen > 0">{{ d.totals.criticalOpen }}</span>
+          <span class="stat-meta">{{ d.totals.criticalOpen === 0 ? 'none right now' : d.totals.criticalOpen === 1 ? 'needs attention first' : 'need attention first' }}</span>
+        </a>
+        @if (resolution(); as r) {
+          <div class="stat">
+            <span class="stat-label">Avg. resolution ({{ r.windowDays }} days)</span>
+            @if (r.average) {
+              <span class="stat-value tabular">{{ r.average }}</span>
+              <span class="stat-meta">median {{ r.median }} · {{ r.sampleSize }} tickets</span>
+            } @else {
+              <span class="stat-value muted" aria-hidden="true">–</span>
+              <span class="stat-meta">
+                Not enough data yet: needs {{ r.minimumSampleSize }} resolved tickets, {{ r.sampleSize }} so far
+              </span>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- ---------- Distributions ---------- -->
+      <div class="grid-2">
+        <section class="panel chart" aria-labelledby="by-status-title">
+          <h2 id="by-status-title" class="section-title">All tickets by status</h2>
+          <ul class="bars">
+            @for (row of statusRows(); track row.key) {
+              <li class="bar-row" [title]="statusHover(row)">
+                <span class="bar-label"><app-status-tag [status]="row.key" /></span>
+                <span class="bar-track" aria-hidden="true"><span class="bar" [style.width.%]="row.width" [class.zero]="row.count === 0"></span></span>
+                <span class="bar-value tabular">{{ row.count }}</span>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="panel chart" aria-labelledby="by-priority-title">
+          <h2 id="by-priority-title" class="section-title">Open tickets by priority</h2>
+          @if (d.totals.open === 0) {
+            <p class="quiet">No open tickets right now.</p>
+          } @else {
+            <ul class="bars">
+              @for (row of priorityRows(); track row.key) {
+                <li class="bar-row" [title]="priorityHover(row)">
+                  <span class="bar-label"><app-priority-meter [priority]="row.key" /></span>
+                  <span class="bar-track" aria-hidden="true"><span class="bar" [style.width.%]="row.width" [class.zero]="row.count === 0"></span></span>
+                  <span class="bar-value tabular">{{ row.count }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+
+      <div class="grid-2 wide-left">
+        <!-- ---------- Agent workload ---------- -->
+        <section class="panel table-panel" aria-labelledby="workload-title">
+          <h2 id="workload-title" class="section-title padded">Agent workload</h2>
+          @if (d.agentWorkload.length === 0) {
+            <p class="quiet padded">No active support agents.</p>
+          } @else {
+            <table class="data-table">
+              <caption class="sr-only">Active tickets per support agent, busiest first</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Agent</th>
+                  <th scope="col" class="num">Active</th>
+                  <th scope="col" class="num">High / critical</th>
+                  <th scope="col" class="num">Resolved ({{ d.resolutionTime.windowDays }}d)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (agent of d.agentWorkload; track agent.id) {
+                  <tr>
+                    <td class="agent">{{ agent.displayName }}</td>
+                    <td class="num">
+                      <span class="inline-bar">
+                        <span class="bar-track" aria-hidden="true"><span class="bar" [style.width.%]="(agent.activeTickets / maxWorkload()) * 100" [class.zero]="agent.activeTickets === 0"></span></span>
+                        <span class="tabular">{{ agent.activeTickets }}</span>
+                      </span>
+                    </td>
+                    <td class="num tabular" [class.urgent]="agent.urgentTickets > 0">{{ agent.urgentTickets }}</td>
+                    <td class="num tabular">{{ agent.resolvedInWindow }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
+
+        <!-- ---------- Recently updated ---------- -->
+        <section class="panel recent" aria-labelledby="recent-title">
+          <div class="section-head">
+            <h2 id="recent-title" class="section-title">Recently updated</h2>
+            <a routerLink="/tickets" [queryParams]="{ view: 'all' }" class="see-all">View all</a>
+          </div>
+          <ul class="recent-list">
+            @for (ticket of d.recentlyUpdated; track ticket.id) {
+              <li>
+                <a [routerLink]="['/tickets', ticket.id]" class="recent-link">
+                  <span class="ref mono">{{ ticket.reference }}</span>
+                  <span class="recent-title">{{ ticket.title }}</span>
+                </a>
+                <span class="recent-meta">
+                  <app-status-tag [status]="ticket.status" />
+                  <app-relative-time [value]="ticket.updatedAt" />
+                </span>
+              </li>
+            }
+          </ul>
+        </section>
+      </div>
+    }
+  }
+</div>

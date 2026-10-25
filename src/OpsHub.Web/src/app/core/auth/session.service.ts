@@ -86,6 +86,6 @@ export class SessionService {
 
   /** Where each role starts after signing in. */
   homeUrl(): string {
-    return this.isStaff() ? '/tickets?view=triage' : '/tickets';
+    return this.isStaff() ? '/dashboard' : '/tickets';
   }
 }

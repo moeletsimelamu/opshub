@@ -147,12 +147,34 @@ Weights: 400 regular, 500 medium (labels, table titles), 600 semibold (headings)
 | Role | Sidebar items | Landing page |
 |---|---|---|
 | Requester | My tickets · **New ticket** | My tickets |
-| Support Agent | Queue · **New ticket** | Queue → "Needs triage" view |
-| Administrator | Queue · Users · **New ticket** | Queue |
+| Support Agent | Dashboard · Queue · **New ticket** | Dashboard |
+| Administrator | Dashboard · Queue · Users · **New ticket** | Dashboard |
 
-The dashboard is added in Phase 7 with real metrics. Until then it isn't in the navigation, so no
-link leads to an empty page. Filters, search, sort and page live in the **URL**, so views can be
+Since Phase 7, staff land on the **Dashboard**, which summarises the desk and links into the Queue. Filters, search, sort and page live in the **URL**, so views can be
 bookmarked and the back button works.
+
+### Dashboard (staff, Phase 7)
+Answers "what needs attention, and is the desk keeping up?" from live data only.
+
+1. Header: title, "Figures as of 14:05", *Refresh* (secondary).
+2. **Stat strip**: one panel split by thin rules, *not* separate big cards. Open tickets · Needs triage ·
+   Waiting for requester · Critical open · Average resolution (30 days). A tile links to the queue only
+   where the queue can show exactly that set (Open → All active, Needs triage → Needs triage, Critical
+   → All active + Critical).
+3. **Tickets by status** and **Open tickets by priority**, side by side: horizontal *bar lists*. A label
+   (status tag / priority meter), a thin bar, and the count; one series each, so one hue and no legend.
+   Bars are scaled to the largest value in that list; zero rows stay visible.
+4. **Agent workload**: a table (agent, active tickets with an inline bar, of which High/Critical,
+   resolved in 30 days), busiest first.
+5. **Recently updated**: the six latest tickets, linking to them.
+
+**Not enough data:** the average resolution time is withheld until at least 3 tickets were resolved in
+30 days. The tile says so ("Needs 3 resolved tickets; 1 so far") instead of showing a number that
+looks like a trend. The median is shown beside the average because a single slow ticket skews a mean.
+
+**Chart colour:** `--chart-bar` `#00879f`. Checked with the data-viz palette validator: inside the
+lightness band, above the chroma floor, ≥ 3:1 on both surfaces. Every bar has its value printed beside
+it and a text label, so colour never carries meaning alone. Hover shows the share of the total.
 
 ### Sign in
 Product name, one-line purpose, email + password, a single primary button. Errors appear as one banner

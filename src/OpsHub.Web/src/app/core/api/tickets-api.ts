@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import {
   AgentSummary,
   CategorySummary,
+  Dashboard,
   PagedResult,
   StatusHistoryEntry,
   TicketComment,
@@ -93,5 +94,10 @@ export class TicketsApi {
 
   agents(): Observable<AgentSummary[]> {
     return this.http.get<AgentSummary[]>('/api/agents');
+  }
+
+  /** Staff-only service-desk overview, computed from live data on every call. */
+  dashboard(): Observable<Dashboard> {
+    return this.http.get<Dashboard>('/api/dashboard');
   }
 }

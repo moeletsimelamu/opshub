@@ -58,7 +58,7 @@ would add operational cost without solving any problem this application has.
 OpsHub/
 ├─ src/
 │  ├─ OpsHub.Domain/        entities, enums, role names, TicketWorkflow (no EF Core / ASP.NET Core)
-│  ├─ OpsHub.Web/            Angular 21 app (see § 11)
+│  ├─ OpsHub.Web/            Angular 21 app (see § 12)
 │  └─ OpsHub.Api/
 │     ├─ Auth/              Identity + cookie setup, policies, XSRF filter, ICurrentUser
 │     ├─ Common/            Result/Error types, ProblemDetails mapping, paging
@@ -226,6 +226,7 @@ proxy, forwarded headers must be configured first (Phase 10).
 | GET | `/api/tickets/{id}/history` | Signed in, visible | 200 status changes, oldest first, or 404 |
 | GET | `/api/categories` | Signed in | 200 active categories |
 | GET | `/api/agents` | Staff | 200 active support agents with their active ticket count |
+| GET | `/api/dashboard` | Staff | 200 live totals, counts by status and priority, agent workload, recently updated, resolution time |
 
 ## 9. Business rules
 
@@ -257,7 +258,38 @@ tests that need no database.
 **Not recorded yet:** assignment changes are applied but not written to a history table (only status
 changes are). A full audit log is listed as a future improvement.
 
-## 10. Known risks
+## 10. Dashboard and reporting (Phase 7)
+
+`GET /api/dashboard` computes everything from the database on each request; nothing is cached
+or hard-coded.
+
+| Metric | Definition |
+|---|---|
+| Open tickets | Status Open, In Progress or Waiting for Information |
+| Needs triage | Open and unassigned |
+| Waiting for requester | Waiting for Information (plus Resolved tickets awaiting confirmation, shown as context) |
+| Critical open | Open tickets with Critical priority |
+| By status | Every status, including zero counts |
+| Open by priority | Active tickets only |
+| Agent workload | Active support agents: active tickets, how many are High/Critical, tickets resolved in the last 30 days |
+| Resolution time | Average and median of (ResolvedAt − CreatedAt) for tickets resolved in the last 30 days |
+
+**Where the maths runs.** Counts run in SQL (`GROUP BY`, `COUNT`). The resolution-time calculation
+runs in C# over two projected columns, because EF Core can't translate date subtraction for SQLite.
+It lives in `OpsHub.Domain/Reporting/ResolutionStatistics.cs` as a pure function, so unit tests can
+use exact values and a fixed clock.
+
+**Insufficient data.** With fewer than 3 tickets resolved in the window, the average and median are
+`null` and the UI explains why. A mean of one or two tickets would look like a trend but mean
+nothing. The median is reported next to the mean because one slow ticket skews a mean.
+
+**Tests.** Unit tests cover exact averages, the median for odd and even samples, window
+boundaries, withheld results and bad timestamps. Integration tests compare every figure with
+values computed from the seed definitions (not typed in), test an empty database, and check that
+requesters get 403. A mutation check (counting all tickets instead of active ones for the priority
+chart) made two tests fail as intended.
+
+## 11. Known risks
 
 | Risk | Mitigation |
 |---|---|
@@ -266,7 +298,7 @@ changes are). A full audit log is listed as a future improvement.
 | Cookie auth gotchas (redirects, CSRF) | Handled in Phase 3: 401/403 instead of redirects, XSRF token filter, tests for both. |
 | Scope creep | Fixed feature list; extras go to *Future improvements*. |
 
-## 11. Frontend (Angular)
+## 12. Frontend (Angular)
 
 The visual design system, screens and responsive rules are specified in
 [DESIGN.md](DESIGN.md), written before any UI code. This section covers the engineering.
@@ -287,6 +319,7 @@ src/OpsHub.Web/src/
       ├─ auth/             Login
       ├─ tickets/          TicketList, TicketDetail, TicketForm, StatusDialog, ticket-actions.ts
       ├─ account/          Account (profile, change password)
+      ├─ dashboard/        DashboardPage (stat strip, bar lists, workload, recent)
       └─ admin/            UserList, UserDialog
 ```
 

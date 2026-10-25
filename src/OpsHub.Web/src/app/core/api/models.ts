@@ -113,3 +113,41 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   Resolved: 'Resolved',
   Closed: 'Closed',
 };
+
+// ---------- Dashboard (GET /api/dashboard, staff only) ----------
+
+export interface DashboardTotals {
+  open: number;
+  needsTriage: number;
+  waitingForRequester: number;
+  criticalOpen: number;
+  awaitingConfirmation: number;
+  total: number;
+}
+
+export interface AgentWorkload {
+  id: string;
+  displayName: string;
+  activeTickets: number;
+  urgentTickets: number;
+  resolvedInWindow: number;
+}
+
+/** averageHours/medianHours are null when too few tickets were resolved to be meaningful. */
+export interface ResolutionTime {
+  windowDays: number;
+  sampleSize: number;
+  minimumSampleSize: number;
+  averageHours: number | null;
+  medianHours: number | null;
+}
+
+export interface Dashboard {
+  generatedAt: string;
+  totals: DashboardTotals;
+  byStatus: { status: TicketStatus; count: number }[];
+  openByPriority: { priority: TicketPriority; count: number }[];
+  agentWorkload: AgentWorkload[];
+  recentlyUpdated: TicketListItem[];
+  resolutionTime: ResolutionTime;
+}

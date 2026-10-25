@@ -1,0 +1,321 @@
+.page {
+  gap: var(--space-4);
+}
+
+.section-title {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quiet {
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+
+.is-refreshing {
+  opacity: 0.6;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+/* ---------- Stat strip: one panel split by rules, not five big cards (DESIGN.md) ---------- */
+
+/* The 1px gaps show the panel's border colour through, so the dividing rules are right at
+   any width without per-breakpoint border rules; the last row stretches to fill. */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  overflow: hidden;
+  background: var(--color-border);
+}
+
+.stat {
+  flex: 1 1 136px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.stat.link:hover {
+  background: #faf9f6;
+  color: var(--color-text);
+}
+
+.stat.link:hover .stat-label {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.stat-label {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.stat-value.attention {
+  color: var(--color-warning);
+}
+
+.stat-value.critical {
+  color: var(--color-danger);
+}
+
+.stat-value.muted {
+  color: var(--color-text-subtle);
+}
+
+.stat-meta {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* ---------- Layout ---------- */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.grid-2.wide-left {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+/* ---------- Bar lists (one series, one hue, value always printed) ---------- */
+
+.chart {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.bars {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 2.5ch;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bar-track {
+  display: block;
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: var(--chart-track);
+  overflow: hidden;
+}
+
+/* Thin mark, rounded only at the data end, anchored to the baseline. */
+.bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--chart-bar);
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+.bar.zero {
+  min-width: 0;
+  width: 0 !important;
+}
+
+.bar-value {
+  justify-self: end;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+/* ---------- Workload table ---------- */
+
+.table-panel {
+  overflow: hidden;
+}
+
+.padded {
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.data-table th.num {
+  text-align: right;
+}
+
+.agent {
+  font-weight: var(--weight-medium);
+}
+
+.inline-bar {
+  display: inline-grid;
+  grid-template-columns: 96px 2.5ch;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.urgent {
+  color: var(--priority-high);
+  font-weight: var(--weight-medium);
+}
+
+/* ---------- Recently updated ---------- */
+
+.recent {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.see-all {
+  font-size: var(--text-sm);
+}
+
+.recent-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-list li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.recent-link {
+  display: grid;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.recent-link:hover .recent-title {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.ref {
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+}
+
+.recent-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.recent-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+}
+
+/* ---------- Loading ---------- */
+
+.loading {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.skeleton-stats .stat {
+  gap: var(--space-2);
+}
+
+.skeleton-panel {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+/* ---------- Responsive (DESIGN.md §7) ---------- */
+
+@media (max-width: 1099px) {
+  .grid-2.wide-left {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 959px) {
+  .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 639px) {
+  .stat {
+    flex-basis: 140px;
+    padding: var(--space-3);
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .chart,
+  .recent {
+    padding: var(--space-4);
+  }
+
+  .bar-row {
+    grid-template-columns: 116px minmax(0, 1fr) 2.5ch;
+  }
+
+  /* The bar is a visual aid; on a phone the number alone keeps the table inside the screen. */
+  .inline-bar {
+    grid-template-columns: 2.5ch;
+  }
+
+  .inline-bar .bar-track {
+    display: none;
+  }
+
+  .table-panel .data-table th,
+  .table-panel .data-table td {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  .table-panel .data-table th {
+    white-space: normal;
+  }
+
+  .padded {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+}

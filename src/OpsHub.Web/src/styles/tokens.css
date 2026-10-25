@@ -43,6 +43,10 @@
   --priority-critical: #b42318;
   --priority-empty-bar: #d6d3ca;
 
+  /* ---------- Charts (validated: lightness band, chroma floor, >= 3:1 on both surfaces) ---------- */
+  --chart-bar: #00879f;
+  --chart-track: #ebe9e3;
+
   /* ---------- Typography ---------- */
   --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using OpsHub.Api.Auth;
 using OpsHub.Api.Data;
 using OpsHub.Api.Data.Seeding;
+using OpsHub.Api.Features.Dashboard;
 using OpsHub.Api.Features.Tickets;
 using OpsHub.Api.Features.Users;
 using Scalar.AspNetCore;
@@ -44,6 +45,7 @@ builder.Services.AddScoped<DevSeeder>();
 builder.Services.AddScoped<UserAdminService>();
 builder.Services.AddScoped<TicketService>();
 builder.Services.AddScoped<TicketActivityService>();
+builder.Services.AddScoped<DashboardService>();
 
 // ---------- Web API ----------
 builder.Services.AddControllers(options =>

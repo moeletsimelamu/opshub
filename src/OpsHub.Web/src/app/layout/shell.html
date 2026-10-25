@@ -12,7 +12,7 @@
     >
       <app-icon [name]="menuOpen() ? 'x' : 'menu'" [size]="20" />
     </button>
-    <a routerLink="/tickets" class="wordmark"><span class="mark" aria-hidden="true"></span>OpsHub</a>
+    <a [routerLink]="session.homeUrl()" class="wordmark"><span class="mark" aria-hidden="true"></span>OpsHub</a>
   </header>
 
   <nav id="sidebar" class="sidebar" aria-label="Main">
@@ -26,6 +26,13 @@
     </a>
 
     <ul class="nav">
+      @if (session.isStaff()) {
+        <li>
+          <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <app-icon name="chart" /> Dashboard
+          </a>
+        </li>
+      }
       <li>
         <a
           routerLink="/tickets"

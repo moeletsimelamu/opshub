@@ -1,6 +1,8 @@
+import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
 
 import { roleGuard, signedInGuard, signedOutGuard } from './core/auth/guards';
+import { SessionService } from './core/auth/session.service';
 import { unsavedChangesGuard } from './core/unsaved-changes';
 import { Shell } from './layout/shell';
 
@@ -20,7 +22,15 @@ export const routes: Routes = [
     component: Shell,
     canActivate: [signedInGuard],
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'tickets' },
+      // Staff start on the dashboard, requesters on their tickets.
+      { path: '', pathMatch: 'full', redirectTo: () => inject(SessionService).homeUrl() },
+      {
+        path: 'dashboard',
+        title: 'Dashboard · OpsHub',
+        canActivate: [roleGuard],
+        data: { roles: ['Administrator', 'SupportAgent'] },
+        loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage),
+      },
       {
         path: 'tickets',
         title: 'Tickets · OpsHub',
