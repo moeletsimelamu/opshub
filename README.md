@@ -3,9 +3,10 @@
 An internal service desk for a fictional logistics company. Employees log support tickets;
 support agents triage, assign and resolve them.
 
-> **Status: work in progress (Phase 3 of 10).** Built so far: data model, migrations, demo
-> data, sign-in with a secure session cookie, role-based authorisation, and user
-> administration endpoints, all covered by integration tests. Ticket endpoints and the
+> **Status: work in progress (Phase 4 of 10).** The backend API is functional: sign-in with a
+> secure session cookie, role-based authorisation, user administration, and ticket management
+> (create, edit, assign, status workflow, comments with internal notes, history, filtering,
+> search, sorting, paging). It is covered by unit and integration tests. The dashboard and the
 > Angular interface are not built yet.
 
 Design and security decisions are recorded in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -85,8 +86,10 @@ Details and limitations: [docs/ARCHITECTURE.md § 7](docs/ARCHITECTURE.md#7-secu
 dotnet test
 ```
 
-The integration tests start the real API in memory against a private SQLite database and act
-like a browser: they keep cookies and send the XSRF header.
+- `tests/OpsHub.Domain.Tests`: unit tests for the ticket status workflow (no database, milliseconds).
+- `tests/OpsHub.Api.IntegrationTests`: start the real API in memory against a private SQLite
+  database and act like a browser (they keep cookies and send the XSRF header). They cover
+  permissions, requester visibility, validation, the workflow and concurrency conflicts.
 
 ## Database migrations
 

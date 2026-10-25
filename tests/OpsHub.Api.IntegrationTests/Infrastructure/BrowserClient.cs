@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace OpsHub.Api.IntegrationTests.Infrastructure;
@@ -29,6 +31,12 @@ public static class BrowserClientExtensions
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>Same JSON conventions as the API: camelCase names, enums as strings.</summary>
+    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
+
     /// <summary>Fetches an XSRF token (as the SPA does at startup), then posts the login form.</summary>
     public static async Task<HttpResponseMessage> LoginAsync(this HttpClient client, string email, string password)
     {
@@ -42,13 +50,13 @@ public static class BrowserClientExtensions
         client.GetAsync(new Uri(path, UriKind.Relative), Ct);
 
     public static Task<HttpResponseMessage> PostJsonAsync<T>(this HttpClient client, string path, T body) =>
-        client.PostAsJsonAsync(new Uri(path, UriKind.Relative), body, Ct);
+        client.PostAsJsonAsync(new Uri(path, UriKind.Relative), body, Json, Ct);
 
     public static Task<HttpResponseMessage> PutJsonAsync<T>(this HttpClient client, string path, T body) =>
-        client.PutAsJsonAsync(new Uri(path, UriKind.Relative), body, Ct);
+        client.PutAsJsonAsync(new Uri(path, UriKind.Relative), body, Json, Ct);
 
     public static async Task<T> ReadJsonAsync<T>(this HttpResponseMessage response) =>
-        await response.Content.ReadFromJsonAsync<T>(Ct)
+        await response.Content.ReadFromJsonAsync<T>(Json, Ct)
         ?? throw new InvalidOperationException("Response body was empty.");
 
     /// <summary>Asserts the status code and that the body is RFC 9457 ProblemDetails.</summary>

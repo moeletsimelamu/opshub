@@ -57,15 +57,16 @@ would add operational cost without solving any problem this application has.
 ```
 OpsHub/
 ├─ src/
-│  ├─ OpsHub.Domain/        entities, enums, role names (no EF Core / ASP.NET Core)
+│  ├─ OpsHub.Domain/        entities, enums, role names, TicketWorkflow (no EF Core / ASP.NET Core)
 │  └─ OpsHub.Api/
 │     ├─ Auth/              Identity + cookie setup, policies, XSRF filter, ICurrentUser
 │     ├─ Common/            Result/Error types, ProblemDetails mapping, paging
 │     ├─ Data/              DbContext, entity configurations, migrations, seeding
-│     ├─ Features/          controller + DTOs + service per feature (Auth, Users; Tickets planned)
+│     ├─ Features/          controller + DTOs + service per feature (Auth, Users, Tickets)
 │     └─ Program.cs         composition root: DI registrations and HTTP pipeline
 ├─ tests/
-│  └─ OpsHub.Api.IntegrationTests/
+│  ├─ OpsHub.Domain.Tests/          unit tests for the ticket workflow (no database)
+│  └─ OpsHub.Api.IntegrationTests/  real API + in-memory SQLite, browser-like client
 ├─ docs/
 ├─ global.json              pins the .NET SDK and selects the test runner
 ├─ Directory.Build.props    shared compiler settings (nullable, warnings as errors, analyzers)
@@ -169,10 +170,15 @@ sequenceDiagram
 | Admin safety | An administrator cannot deactivate themselves or remove their own Administrator role | Since only active admins can call the endpoint, at least one active admin always remains. |
 | Logging | Sign-in success and failure logged with user ID and reason; never passwords or attempted emails | Useful for auditing without leaking secrets or personal data. |
 
-### Planned (Phase 4)
+### Ticket data protection
 
-- Requester visibility enforced inside one query method; another requester's ticket returns 404, not 403.
-- Internal comments filtered on the server.
+| Concern | Decision | Why |
+|---|---|---|
+| Requester visibility | Every ticket read and write starts from one query method, `TicketQueries.VisibleTo(user)`: staff see all tickets, requesters only `RequesterId == me` | One rule in one place; the list, search, details, comments, history, edit and status endpoints can't diverge. |
+| Hidden vs forbidden | Another requester's ticket returns **404**, the same as a ticket that doesn't exist | A 403 would confirm the ticket number exists. |
+| Internal notes | Filtered in the SQL query for non-staff, so they never leave the database | Filtering in the UI would still send them to the browser. |
+| Ownership | `RequesterId` comes from the session; a `requesterId` in the request body is ignored | Clients can't create tickets in someone else's name. |
+| Permissions in responses | Ticket details include `permissions` (`canEdit`, `allowedStatuses`, …) | The UI shows only working controls; the API still enforces every rule. |
 
 ### Known limitations (demo scope)
 
@@ -189,9 +195,12 @@ proxy, forwarded headers must be configured first (Phase 10).
 | Expected failures | Services return `Result<T>` with an `Error` (`Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Forbidden` → 403). Exceptions are reserved for bugs and outages. |
 | Paging | `?page=1&pageSize=20` (max 100) → `{ items, page, pageSize, totalCount, totalPages }`. |
 | Search | SQL `LIKE` with user `%` and `_` escaped, case-insensitive in SQLite. |
-| Cancellation | List endpoints pass the request's `CancellationToken` to EF Core. |
+| Cancellation | Endpoints pass the request's `CancellationToken` to EF Core, so abandoned requests stop querying. |
+| Enums | Sent and received as names (`"InProgress"`, `"High"`), not numbers. |
+| Optimistic concurrency | Ticket writes send the `version` they last read; a stale version gets 409 `concurrency_conflict` instead of overwriting someone else's change. |
+| Sorting | `sortBy` is whitelisted (`updatedAt`, `createdAt`, `priority`, `status`, `title`, `id`); ticket ID is the tie-breaker so pages never overlap. |
 
-### Endpoints (so far)
+### Endpoints
 
 | Method | Route | Access | Result |
 |---|---|---|---|
@@ -205,21 +214,47 @@ proxy, forwarded headers must be configured first (Phase 10).
 | GET | `/api/users/{id}` | Administrator | 200 or 404 |
 | POST | `/api/users` | Administrator | 201 + `Location`, 400, or 409 `email_in_use` |
 | PUT | `/api/users/{id}` | Administrator | 200, 400, 404, or 409 (`cannot_deactivate_self`, `cannot_demote_self`) |
+| GET | `/api/tickets?status=&priority=&categoryId=&assigneeId=&unassigned=&search=&sortBy=&sortDirection=&page=&pageSize=` | Signed in (own tickets for requesters) | 200 paged tickets; `status` and `priority` can repeat |
+| POST | `/api/tickets` | Signed in | 201 + `Location`, or 400 |
+| GET | `/api/tickets/{id}` | Signed in, visible | 200 details + `permissions`, or 404 |
+| PUT | `/api/tickets/{id}` | Owner while Open, or staff | 200, 400, 403 `priority_change_requires_staff`, 404, 409 (`ticket_locked`, `ticket_closed`, `concurrency_conflict`) |
+| PUT | `/api/tickets/{id}/assignee` | Staff | 200, 400 (not an active agent), 404, 409 |
+| PUT | `/api/tickets/{id}/status` | Visible (workflow decides) | 200, 400 `note_required`, 403 `transition_requires_staff`, 404, 409 (`transition_not_allowed`, `assignee_required`, `concurrency_conflict`) |
+| GET | `/api/tickets/{id}/comments` | Signed in, visible | 200 (internal notes only for staff), or 404 |
+| POST | `/api/tickets/{id}/comments` | Signed in, visible | 201, 400, 403 `internal_comments_staff_only`, 404, 409 `ticket_closed` |
+| GET | `/api/tickets/{id}/history` | Signed in, visible | 200 status changes, oldest first, or 404 |
+| GET | `/api/categories` | Signed in | 200 active categories |
+| GET | `/api/agents` | Staff | 200 active support agents with their active ticket count |
 
-## 9. Business rules (planned, Phase 4)
+## 9. Business rules
 
-| From | Allowed to |
-|---|---|
-| Open | In Progress, Waiting for Information, Resolved, Closed |
-| In Progress | Waiting for Information, Resolved |
-| Waiting for Information | In Progress, Resolved |
-| Resolved | Closed, In Progress (reopen; the requester may also reopen) |
-| Closed | none (final) |
+The status workflow lives in `OpsHub.Domain/Tickets/TicketWorkflow.cs` and is covered by unit
+tests that need no database.
 
-- Entering *Resolved* sets `ResolvedAt`; reopening clears it.
-- Every change writes a `TicketStatusHistory` row.
-- A requester comment on a *Waiting for Information* ticket moves it back to *In Progress*.
-- Tickets can only be assigned to active Support Agents.
+| From | Allowed to (staff) | Requester (own ticket) |
+|---|---|---|
+| Open | In Progress\*, Waiting for Information\*, Resolved, Closed (note required) | none |
+| In Progress | Waiting for Information, Resolved | none |
+| Waiting for Information | In Progress, Resolved | none |
+| Resolved | Open (reopen), In Progress\*, Closed | Open (reopen), Closed (confirm the fix) |
+| Closed | none (final) | none |
+
+\* requires an assigned agent: someone must be working on a ticket in these statuses.
+
+- **Change from the Phase 1 plan:** reopening moves a ticket to *Open* rather than *In Progress*, so a
+  reopened ticket with no assigned agent goes back to the triage queue instead of being stuck.
+- Entering *Resolved* sets `ResolvedAt`; reopening clears it; closing keeps it (null if never resolved).
+- Every change writes a `TicketStatusHistory` row with who, when and an optional note.
+- A requester comment on a *Waiting for Information* ticket moves it back to *In Progress* automatically.
+- Tickets can only be assigned to active Support Agents (not requesters, administrators or deactivated agents).
+- Unassigning a ticket that is *In Progress* or *Waiting* returns it to *Open*.
+- Deactivating an agent, or moving them to another role, returns their unfinished tickets to the queue in
+  the same transaction.
+- Requesters may edit title, description and category only while their ticket is *Open*; priority
+  changes after creation are staff-only. Closed tickets are read-only for everyone.
+
+**Not recorded yet:** assignment changes are applied but not written to a history table (only status
+changes are). A full audit log is listed as a future improvement.
 
 ## 10. Known risks
 

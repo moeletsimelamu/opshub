@@ -4,6 +4,7 @@ using OpsHub.Api.Auth;
 using OpsHub.Api.Common;
 using OpsHub.Api.Common.Results;
 using OpsHub.Api.Data;
+using OpsHub.Api.Features.Tickets;
 using OpsHub.Domain.Users;
 
 namespace OpsHub.Api.Features.Users;
@@ -16,6 +17,7 @@ namespace OpsHub.Api.Features.Users;
 public sealed partial class UserAdminService(
     OpsHubDbContext db,
     UserManager<AppUser> userManager,
+    TicketService tickets,
     ICurrentUser currentUser,
     TimeProvider timeProvider,
     ILogger<UserAdminService> logger)
@@ -151,6 +153,18 @@ public sealed partial class UserAdminService(
 
         user.DisplayName = request.DisplayName.Trim();
         user.IsActive = request.IsActive;
+
+        // An agent who is deactivated or moved to another role can no longer work tickets,
+        // so their unfinished tickets go back to the queue in the same transaction.
+        var stopsBeingAgent = currentRole == AppRoles.SupportAgent && (deactivated || request.Role != AppRoles.SupportAgent);
+        if (stopsBeingAgent)
+        {
+            var reason = deactivated
+                ? $"Returned to the queue: {user.DisplayName} was deactivated."
+                : $"Returned to the queue: {user.DisplayName} is no longer a support agent.";
+            await tickets.ReturnAgentTicketsToQueueAsync(user.Id, reason, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
 
         // A new security stamp invalidates the user's existing sessions at the next
         // validation, so a role change or deactivation takes effect within a minute

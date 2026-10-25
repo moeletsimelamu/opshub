@@ -1,8 +1,10 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.EntityFrameworkCore;
 using OpsHub.Api.Auth;
 using OpsHub.Api.Data;
 using OpsHub.Api.Data.Seeding;
+using OpsHub.Api.Features.Tickets;
 using OpsHub.Api.Features.Users;
 using Scalar.AspNetCore;
 
@@ -40,6 +42,8 @@ builder.Services.AddOpsHubAuth(builder.Configuration);
 // ---------- Application services ----------
 builder.Services.AddScoped<DevSeeder>();
 builder.Services.AddScoped<UserAdminService>();
+builder.Services.AddScoped<TicketService>();
+builder.Services.AddScoped<TicketActivityService>();
 
 // ---------- Web API ----------
 builder.Services.AddControllers(options =>
@@ -49,6 +53,12 @@ builder.Services.AddControllers(options =>
 
     // Validation errors use the JSON property names the client sent ("email", not "Email").
     options.ModelMetadataDetailsProviders.Add(new SystemTextJsonValidationMetadataProvider());
+})
+.AddJsonOptions(options =>
+{
+    // Enums travel as readable names ("InProgress") instead of numbers, which makes the
+    // API contract self-explanatory and safe if enum values are ever reordered.
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddOpenApi();
 

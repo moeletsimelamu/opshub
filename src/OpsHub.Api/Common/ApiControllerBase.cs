@@ -23,7 +23,13 @@ public abstract class ApiControllerBase : ControllerBase
                 }
             }
 
-            return ValidationProblem(ModelState);
+            var validationProblem = ProblemDetailsFactory.CreateValidationProblemDetails(HttpContext, ModelState);
+            validationProblem.Extensions["code"] = error.Code;
+            return new ObjectResult(validationProblem)
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                ContentTypes = { "application/problem+json" },
+            };
         }
 
         var status = error.Type switch
