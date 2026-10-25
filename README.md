@@ -104,13 +104,22 @@ Forgot the demo password? `dotnet user-secrets list --project src/OpsHub.Api`.
 - Every endpoint requires sign-in unless explicitly public; roles are checked on the server.
 - Account lockout after 5 failed attempts, and login rate limiting per IP address.
 - Sign-in errors never reveal whether an email has an account.
+- Strict response headers (CSP, `nosniff`, no framing, no referrer), HSTS outside Development,
+  and a 1 MB request size limit.
 
 Details and limitations: [docs/ARCHITECTURE.md § 7](docs/ARCHITECTURE.md#7-security-model).
+
+## Security, accessibility and responsive review
+
+[docs/REVIEW.md](docs/REVIEW.md) records the Phase 9 review: each finding with its severity,
+fix and how it was verified. The result: 0 axe-core violations on every screen and dialog
+(WCAG 2.2 AA), and no sideways scrolling at 375, 768, 1024 or 1440 px. It also lists what
+wasn't tested (no screen reader, Chromium only).
 
 ## Run tests
 
 ```bash
-# Backend: 58 unit + 108 integration tests
+# Backend: 58 unit + 112 integration tests
 dotnet test
 
 # Frontend: 47 unit and component tests (Vitest + jsdom, no browser needed)
@@ -148,7 +157,8 @@ dotnet ef migrations add <Name> --project src/OpsHub.Api --output-dir Data/Migra
 
 - Assignment changes aren't written to a history table (status changes are).
 - No password reset by email, MFA or email verification (demo scope).
-- When the mobile navigation drawer opens, focus isn't yet moved into it (Phase 9 accessibility review).
+- Accessibility was checked with axe-core and the keyboard, not yet with a screen reader, and
+  only in Chromium ([docs/REVIEW.md § 4](docs/REVIEW.md#4-limits-of-this-review)).
 - `npm audit` reports advisories in `undici`, used only by the Angular **build tool**
   (`@angular/build`) on the developer's machine. It isn't shipped to the browser; the production
   dependencies report 0 vulnerabilities (`npm audit --omit=dev`). Waiting for an Angular patch.

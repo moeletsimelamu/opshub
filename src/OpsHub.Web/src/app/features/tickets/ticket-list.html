@@ -57,6 +57,13 @@
       }
     </select>
 
+    <label class="sr-only" for="sort-order">Sort by</label>
+    <select id="sort-order" class="select filter sort-select" (change)="setSort($any($event.target).value)">
+      @for (option of sortOptions; track option.value) {
+        <option [value]="option.value" [selected]="option.value === query().sort + ':' + query().direction">{{ option.label }}</option>
+      }
+    </select>
+
     @if (hasFilters()) {
       <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear filters</button>
     }

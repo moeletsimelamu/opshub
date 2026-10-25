@@ -7,6 +7,7 @@ using OpsHub.Api.Data.Seeding;
 using OpsHub.Api.Features.Dashboard;
 using OpsHub.Api.Features.Tickets;
 using OpsHub.Api.Features.Users;
+using OpsHub.Api.Security;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,17 @@ if (!builder.Environment.IsDevelopment())
     builder.Logging.ClearProviders();
     builder.Logging.AddJsonConsole();
 }
+
+// ---------- Server hardening ----------
+builder.WebHost.ConfigureKestrel(kestrel =>
+{
+    // Don't advertise the server software ("Server: Kestrel").
+    kestrel.AddServerHeader = false;
+
+    // The API never accepts uploads; its largest request is a ticket description (4,000
+    // characters). 1 MB leaves ample room while refusing oversized bodies early.
+    kestrel.Limits.MaxRequestBodySize = 1_000_000;
+});
 
 // ---------- Configuration ----------
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
@@ -69,13 +81,31 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddHealthChecks().AddDbContextCheck<OpsHubDbContext>("database");
 
+// 180 days of HTTPS-only. No includeSubDomains/preload: the domain isn't known yet (Phase 10).
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(180));
+
 var app = builder.Build();
 
 await app.InitialiseDatabaseAsync();
 
 // ---------- HTTP pipeline (order matters) ----------
-app.UseExceptionHandler();
+app.UseSecurityHeaders();
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    // Client mistakes the server detects while reading a request (e.g. a body over the 1 MB
+    // limit → 413) keep their own status code instead of becoming a 500 "server error".
+    StatusCodeSelector = exception => exception is BadHttpRequestException badRequest
+        ? badRequest.StatusCode
+        : StatusCodes.Status500InternalServerError,
+});
 app.UseStatusCodePages();
+
+if (!app.Environment.IsDevelopment())
+{
+    // HSTS: browsers remember to use HTTPS only (not in Development, where it would stick
+    // to localhost and affect other local projects).
+    app.UseHsts();
+}
 
 if (app.Environment.IsDevelopment())
 {

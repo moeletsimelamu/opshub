@@ -188,6 +188,11 @@ No email verification, password reset by email or multi-factor authentication. A
 set initial passwords. The IP rate limit uses the direct connection address; behind a reverse
 proxy, forwarded headers must be configured first (Phase 10).
 
+### Hardening (Phase 9)
+
+Response headers, HSTS, the request size limit and the other review findings are recorded,
+with how each was verified, in [REVIEW.md](REVIEW.md).
+
 ## 8. API conventions
 
 | Concern | Convention |

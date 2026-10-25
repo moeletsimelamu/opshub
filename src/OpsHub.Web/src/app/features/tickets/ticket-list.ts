@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { BehaviorSubject, catchError, combineLatest, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
@@ -34,6 +34,22 @@ const REQUESTER_VIEWS: View[] = [
   { id: 'all', label: 'All' },
 ];
 
+/**
+ * Phones have no visible column headers (rows are stacked), so sorting is a select there.
+ * Every column/direction pair the headers can produce is listed, so the select always
+ * shows the current order.
+ */
+const SORT_OPTIONS: { value: `${SortColumn}:${'asc' | 'desc'}`; label: string }[] = [
+  { value: 'updatedAt:desc', label: 'Sort: recently updated' },
+  { value: 'updatedAt:asc', label: 'Sort: least recently updated' },
+  { value: 'priority:desc', label: 'Sort: highest priority' },
+  { value: 'priority:asc', label: 'Sort: lowest priority' },
+  { value: 'id:desc', label: 'Sort: newest' },
+  { value: 'id:asc', label: 'Sort: oldest' },
+  { value: 'status:asc', label: 'Sort: status, open first' },
+  { value: 'status:desc', label: 'Sort: status, closed first' },
+];
+
 /** Everything the list shows is derived from the URL, so views are shareable and the back button works. */
 interface ListQuery {
   view: ViewId;
@@ -61,11 +77,14 @@ export class TicketList {
   protected readonly session = inject(SessionService);
 
   protected readonly priorities = TICKET_PRIORITIES;
+  protected readonly sortOptions = SORT_OPTIONS;
   protected readonly views = computed(() => (this.session.isStaff() ? STAFF_VIEWS : REQUESTER_VIEWS));
   protected readonly categories = toSignal(this.api.categories().pipe(catchError(() => of([]))), { initialValue: [] });
 
   private readonly queryParams = toSignal(this.route.queryParamMap, { requireSync: true });
   protected readonly query = computed(() => this.parse(this.queryParams()));
+  private readonly view = computed(() => this.query().view);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   private readonly reload$ = new BehaviorSubject<void>(undefined);
   protected readonly state = toSignal(
@@ -86,6 +105,19 @@ export class TicketList {
 
   constructor() {
     effect(() => this.searchText.set(this.query().search));
+
+    // On phones the view tabs scroll sideways, so the current one (e.g. "All tickets",
+    // last in the row) can start out of sight. A task, so the new aria-current is rendered,
+    // and after the web font has loaded, because it changes the tabs' widths.
+    effect(() => {
+      this.view();
+      setTimeout(async () => {
+        await document.fonts?.ready;
+        this.host.nativeElement
+          .querySelector<HTMLElement>('.tab[aria-current="page"]')
+          ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      });
+    });
 
     toObservable(this.searchText)
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(inject(DestroyRef)))
@@ -117,6 +149,12 @@ export class TicketList {
     const q = this.query();
     // Clicking the active column flips the direction; a new column starts with the most useful order.
     const direction = q.sort === column ? (q.direction === 'desc' ? 'asc' : 'desc') : column === 'id' ? 'asc' : 'desc';
+    this.navigate({ sort: column, dir: direction, page: null });
+  }
+
+  /** From the phone sort select: "priority:desc". */
+  protected setSort(value: string): void {
+    const [column, direction] = value.split(':');
     this.navigate({ sort: column, dir: direction, page: null });
   }
 

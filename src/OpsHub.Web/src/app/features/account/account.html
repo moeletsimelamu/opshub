@@ -70,12 +70,14 @@
           formControlName="confirmPassword"
           autocomplete="new-password"
           [attr.aria-invalid]="isInvalid(form.controls.confirmPassword) || showMismatch()"
-          aria-describedby="confirm-password-error"
+          aria-describedby="confirm-password-error confirm-password-mismatch"
         />
         <app-field-error [control]="form.controls.confirmPassword" errorId="confirm-password-error" label="Repeat new password" />
-        @if (showMismatch()) {
-          <p class="field-error" id="confirm-password-error"><app-icon name="alert" [size]="14" />The two new passwords don’t match.</p>
-        }
+        <div id="confirm-password-mismatch">
+          @if (showMismatch()) {
+            <p class="field-error"><app-icon name="alert" [size]="14" />The two new passwords don’t match.</p>
+          }
+        </div>
       </div>
 
       <p class="field-hint">Changing your password signs you out on every other device. You stay signed in here.</p>

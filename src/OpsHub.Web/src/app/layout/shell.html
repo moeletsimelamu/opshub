@@ -3,6 +3,7 @@
 <div class="frame" [class.menu-open]="menuOpen()" (keydown.escape)="menuOpen.set(false)">
   <header class="topbar">
     <button
+      #menuButton
       type="button"
       class="menu-button"
       aria-label="Menu"
@@ -15,7 +16,7 @@
     <a [routerLink]="session.homeUrl()" class="wordmark"><span class="mark" aria-hidden="true"></span>OpsHub</a>
   </header>
 
-  <nav id="sidebar" class="sidebar" aria-label="Main">
+  <nav id="sidebar" #sidebar class="sidebar" aria-label="Main">
     <div class="brand">
       <a routerLink="/tickets" class="wordmark"><span class="mark" aria-hidden="true"></span>OpsHub</a>
       <p class="org">Marula Logistics service desk</p>
@@ -54,11 +55,13 @@
     </ul>
 
     <div class="account">
-      <a class="who" routerLink="/account" routerLinkActive="active" ariaCurrentWhenActive="page" aria-label="Your account: {{ session.user()?.displayName }}, {{ roleLabel() }}">
+      <!-- No aria-label: the accessible name must contain the visible text (WCAG 2.5.3), so voice
+           control users can say what they see. The hidden suffix adds the link's purpose. -->
+      <a class="who" routerLink="/account" routerLinkActive="active" ariaCurrentWhenActive="page">
         <span class="avatar" aria-hidden="true">{{ initials() }}</span>
         <span class="who-text">
           <span class="name">{{ session.user()?.displayName }}</span>
-          <span class="role">{{ roleLabel() }}</span>
+          <span class="role">{{ roleLabel() }}<span class="sr-only"> (your account)</span></span>
         </span>
       </a>
       <button type="button" class="btn btn-ghost sign-out" [disabled]="signingOut()" (click)="signOut()">
@@ -75,7 +78,8 @@
     (click)="menuOpen.set(false)"
   ></button>
 
-  <main id="main" tabindex="-1">
+  <!-- While the mobile menu is open, the page behind it is inert: not focusable or clickable. -->
+  <main id="main" tabindex="-1" [attr.inert]="menuOpen() ? '' : null">
     <router-outlet />
   </main>
 </div>

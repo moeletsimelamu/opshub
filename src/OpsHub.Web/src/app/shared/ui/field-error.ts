@@ -14,10 +14,14 @@ import { Icon } from './icon';
 @Component({
   selector: 'app-field-error',
   imports: [Icon],
+  // The element with the id always exists (empty when valid), so an input's
+  // aria-describedby never points at an element that isn't there.
   template: `
-    @if (message(); as text) {
-      <p class="field-error" [id]="errorId()"><app-icon name="alert" [size]="14" />{{ text }}</p>
-    }
+    <div [id]="errorId()">
+      @if (message(); as text) {
+        <p class="field-error"><app-icon name="alert" [size]="14" />{{ text }}</p>
+      }
+    </div>
   `,
 })
 export class FieldError {

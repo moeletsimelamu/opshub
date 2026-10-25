@@ -41,6 +41,11 @@
   font-size: var(--text-sm);
 }
 
+/* Wider screens sort with the column headers. */
+.sort-select {
+  display: none;
+}
+
 /* ---------- Table ---------- */
 
 .table-panel {
@@ -147,12 +152,15 @@
     min-width: 0;
   }
 
+  .sort-select {
+    display: block;
+    flex-basis: 100%;
+  }
+
+  /* Removed rather than visually hidden: its sort buttons would otherwise be invisible
+     keyboard stops. Each stacked row is self-explanatory, and the sort select replaces them. */
   .data-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
+    display: none;
   }
 
   .data-table,
