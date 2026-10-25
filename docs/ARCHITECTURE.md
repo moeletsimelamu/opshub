@@ -59,8 +59,10 @@ OpsHub/
 ├─ src/
 │  ├─ OpsHub.Domain/        entities, enums, role names (no EF Core / ASP.NET Core)
 │  └─ OpsHub.Api/
+│     ├─ Auth/              Identity + cookie setup, policies, XSRF filter, ICurrentUser
+│     ├─ Common/            Result/Error types, ProblemDetails mapping, paging
 │     ├─ Data/              DbContext, entity configurations, migrations, seeding
-│     ├─ Features/          (planned) controller + DTOs + service per feature
+│     ├─ Features/          controller + DTOs + service per feature (Auth, Users; Tickets planned)
 │     └─ Program.cs         composition root: DI registrations and HTTP pipeline
 ├─ tests/
 │  └─ OpsHub.Api.IntegrationTests/
@@ -124,26 +126,87 @@ match the planned ticket-list filters and default sort.
 | `Database:ApplyMigrationsOnStartup` | `false` | `true` | Development convenience; production applies migrations deliberately. |
 | `Seed:Enabled` | `false` | `true` | Seeds fictional data into an empty database. Refused in Production. |
 | `Seed:DemoPassword` | *(unset)* | set via user-secrets | Password for every demo account. Never committed. |
+| `Auth:LoginAttemptsPerMinute` | `10` | same | Login requests allowed per client IP per minute. |
 
 Any key can be overridden by an environment variable, using `__` for `:`
 (e.g. `ConnectionStrings__OpsHub`).
 
 ## 7. Security model
 
-**Built so far:**
-- Passwords are hashed by ASP.NET Core Identity (PBKDF2-HMAC-SHA512, 100,000 iterations, random salt).
-- The password policy follows NIST SP 800-63B: minimum 12 characters, no forced character classes.
-- No secrets in the repository. The demo password comes from user-secrets or an environment variable.
+### Sign-in flow
 
-**(planned, Phase 3+):**
-- HttpOnly, `Secure`, `SameSite=Strict` session cookie, with Angular's XSRF token as defence in depth.
-- API returns 401/403 instead of redirecting to a login page.
-- The current user is always taken from the session, never from request bodies.
-- Requester visibility is enforced inside a single query method. Another requester's ticket returns 404, not 403, so its existence is not confirmed.
-- Internal comments are filtered on the server.
-- Lockout after repeated failed sign-ins.
+```mermaid
+sequenceDiagram
+  participant B as Browser (Angular)
+  participant A as OpsHub API
+  participant D as Database
+  B->>A: GET /api/auth/antiforgery
+  A-->>B: 204 + XSRF-TOKEN cookie (readable by JS)
+  B->>A: POST /api/auth/login {email, password} + X-XSRF-TOKEN header
+  A->>A: validate XSRF token, rate limit per IP
+  A->>D: find user, verify PBKDF2 hash, check IsActive and lockout
+  A-->>B: 200 {id, email, displayName, role} + __Host-opshub-session cookie (HttpOnly) + new XSRF-TOKEN
+  B->>A: GET /api/users (cookie sent automatically)
+  A->>A: authenticate cookie, re-check security stamp (every minute), apply AdminOnly policy
+  A-->>B: 200 or 403
+```
 
-## 8. Business rules (planned, Phase 4)
+### Decisions
+
+| Concern | Decision | Why |
+|---|---|---|
+| Password storage | ASP.NET Core Identity `PasswordHasher` (PBKDF2-HMAC-SHA512, 100,000 iterations, random salt) | A slow, salted, standard algorithm; no custom crypto. |
+| Password policy | Minimum 12 characters, no forced character classes | NIST SP 800-63B: length matters more than complexity rules. |
+| Session | Cookie `__Host-opshub-session`: `HttpOnly`, `Secure`, `SameSite=Strict`, 8 h sliding expiry | JavaScript can't read it, so an XSS bug can't steal the session. `__Host-` blocks subdomain overwrites. |
+| CSRF | Double-submit token: `XSRF-TOKEN` cookie → `X-XSRF-TOKEN` header, checked on every POST/PUT/PATCH/DELETE by a global filter | Defence in depth on top of `SameSite=Strict`; Angular sends the header automatically. |
+| Unauthenticated API calls | 401/403 ProblemDetails instead of the cookie handler's default 302 redirect | An SPA needs a status code it can react to. |
+| Secure by default | Fallback authorisation policy requires a signed-in user for every endpoint without `[AllowAnonymous]`, including unknown URLs | Forgetting `[Authorize]` cannot expose an endpoint, and anonymous visitors can't probe which routes exist. |
+| Roles | `StaffOnly` (Agent, Admin) and `AdminOnly` policies; exactly one role per user | Checked on the server for every request; the UI only hides what the user can't use. |
+| Identity of the caller | `ICurrentUser` reads the user ID from the authenticated cookie | Client-supplied user IDs or roles are never trusted. |
+| Brute force | Lockout after 5 wrong passwords (15 min); 10 login requests per IP per minute | Lockout protects one account; rate limiting slows guessing across many accounts. |
+| Account enumeration | Identical 401 response for unknown email, wrong password, locked or inactive account; unknown emails still run a password-hash check | Neither the message nor the response time reveals whether an email has an account. |
+| Revocation | Deactivation, role change and password change rotate the security stamp; sessions are re-validated every minute | Changes take effect within a minute, not when the cookie expires. |
+| Admin safety | An administrator cannot deactivate themselves or remove their own Administrator role | Since only active admins can call the endpoint, at least one active admin always remains. |
+| Logging | Sign-in success and failure logged with user ID and reason; never passwords or attempted emails | Useful for auditing without leaking secrets or personal data. |
+
+### Planned (Phase 4)
+
+- Requester visibility enforced inside one query method; another requester's ticket returns 404, not 403.
+- Internal comments filtered on the server.
+
+### Known limitations (demo scope)
+
+No email verification, password reset by email or multi-factor authentication. Administrators
+set initial passwords. The IP rate limit uses the direct connection address; behind a reverse
+proxy, forwarded headers must be configured first (Phase 10).
+
+## 8. API conventions
+
+| Concern | Convention |
+|---|---|
+| Errors | RFC 9457 ProblemDetails (`application/problem+json`) with `traceId`. Business-rule errors add a stable `code` (e.g. `email_in_use`). |
+| Validation | DataAnnotations on request DTOs → 400 with `errors` keyed by JSON field name (`email`, `role`). |
+| Expected failures | Services return `Result<T>` with an `Error` (`Validation` → 400, `NotFound` → 404, `Conflict` → 409, `Forbidden` → 403). Exceptions are reserved for bugs and outages. |
+| Paging | `?page=1&pageSize=20` (max 100) → `{ items, page, pageSize, totalCount, totalPages }`. |
+| Search | SQL `LIKE` with user `%` and `_` escaped, case-insensitive in SQLite. |
+| Cancellation | List endpoints pass the request's `CancellationToken` to EF Core. |
+
+### Endpoints (so far)
+
+| Method | Route | Access | Result |
+|---|---|---|---|
+| GET | `/health` | Anyone | `Healthy` when the database is reachable |
+| GET | `/api/auth/antiforgery` | Anyone | 204 + `XSRF-TOKEN` cookie |
+| POST | `/api/auth/login` | Anyone (rate-limited) | 200 current user, or 401 |
+| POST | `/api/auth/logout` | Signed in | 204 |
+| GET | `/api/auth/me` | Signed in | 200 current user |
+| POST | `/api/auth/change-password` | Signed in | 204, or 400 with field errors |
+| GET | `/api/users?search=&role=&isActive=&page=&pageSize=` | Administrator | 200 paged users |
+| GET | `/api/users/{id}` | Administrator | 200 or 404 |
+| POST | `/api/users` | Administrator | 201 + `Location`, 400, or 409 `email_in_use` |
+| PUT | `/api/users/{id}` | Administrator | 200, 400, 404, or 409 (`cannot_deactivate_self`, `cannot_demote_self`) |
+
+## 9. Business rules (planned, Phase 4)
 
 | From | Allowed to |
 |---|---|
@@ -158,11 +221,11 @@ Any key can be overridden by an environment variable, using `__` for `:`
 - A requester comment on a *Waiting for Information* ticket moves it back to *In Progress*.
 - Tickets can only be assigned to active Support Agents.
 
-## 9. Known risks
+## 10. Known risks
 
 | Risk | Mitigation |
 |---|---|
 | SQLite limits (no `DateTimeOffset` ordering, limited `ALTER TABLE`, weak date arithmetic) | UTC `DateTime`; date maths in C# over projected rows; simple migrations. |
 | Data leaking to the wrong requester (IDOR) | One visibility query used everywhere, and integration tests that try to cross the boundary. |
-| Cookie auth gotchas (redirects, CSRF) | Explicit 401/403 handling and an antiforgery token. |
+| Cookie auth gotchas (redirects, CSRF) | Handled in Phase 3: 401/403 instead of redirects, XSRF token filter, tests for both. |
 | Scope creep | Fixed feature list; extras go to *Future improvements*. |

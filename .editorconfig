@@ -18,6 +18,10 @@ csharp_style_namespace_declarations = file_scoped:warning
 csharp_prefer_primary_constructors = true:suggestion
 dotnet_sort_system_directives_first = true
 
+# CA1716 protects libraries consumed from Visual Basic (e.g. a type named "Error").
+# OpsHub is an application, not a reusable library.
+dotnet_diagnostic.CA1716.severity = none
+
 # Test names use the Method_Scenario_ExpectedResult convention.
 [tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none

@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.EntityFrameworkCore;
+using OpsHub.Api.Auth;
 using OpsHub.Api.Data;
 using OpsHub.Api.Data.Seeding;
-using OpsHub.Domain.Users;
+using OpsHub.Api.Features.Users;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,28 +34,22 @@ builder.Services.AddDbContext<OpsHubDbContext>((services, options) =>
     options.UseSqlite(connectionString);
 });
 
-// ---------- Identity (user store + password hashing) ----------
-// Sign-in, cookies and authorisation policies are added in Phase 3.
-builder.Services
-    .AddIdentityCore<AppUser>(options =>
-    {
-        options.User.RequireUniqueEmail = true;
+// ---------- Identity, session cookie, authorisation, CSRF, rate limiting ----------
+builder.Services.AddOpsHubAuth(builder.Configuration);
 
-        // Follows current NIST guidance (SP 800-63B): require length, not character-class rules.
-        options.Password.RequiredLength = 12;
-        options.Password.RequiredUniqueChars = 4;
-        options.Password.RequireDigit = false;
-        options.Password.RequireLowercase = false;
-        options.Password.RequireUppercase = false;
-        options.Password.RequireNonAlphanumeric = false;
-    })
-    .AddRoles<IdentityRole<Guid>>()
-    .AddEntityFrameworkStores<OpsHubDbContext>();
-
+// ---------- Application services ----------
 builder.Services.AddScoped<DevSeeder>();
+builder.Services.AddScoped<UserAdminService>();
 
 // ---------- Web API ----------
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Every POST/PUT/PATCH/DELETE must carry a valid X-XSRF-TOKEN header.
+    options.Filters.Add<XsrfValidationFilter>();
+
+    // Validation errors use the JSON property names the client sent ("email", not "Email").
+    options.ModelMetadataDetailsProviders.Add(new SystemTextJsonValidationMetadataProvider());
+});
 builder.Services.AddOpenApi();
 
 // Every error response becomes an RFC 9457 ProblemDetails JSON body with a traceId.
@@ -72,15 +67,17 @@ app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();                 // /openapi/v1.json
-    app.MapScalarApiReference();      // /scalar: interactive API documentation
+    app.MapOpenApi().AllowAnonymous();                 // /openapi/v1.json
+    app.MapScalarApiReference().AllowAnonymous();      // /scalar: interactive API documentation
 }
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.UseAuthentication();   // Who is this? (reads the session cookie)
+app.UseAuthorization();    // Are they allowed? (policies, [Authorize], fallback policy)
+app.UseRateLimiter();
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 
 await app.RunAsync();

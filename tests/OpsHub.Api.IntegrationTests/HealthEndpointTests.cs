@@ -17,13 +17,14 @@ public class HealthEndpointTests(OpsHubApiFactory factory) : IClassFixture<OpsHu
     }
 
     [Fact]
-    public async Task UnknownRoute_ReturnsProblemDetails()
+    public async Task UnknownRoute_Anonymous_Returns401ProblemDetails()
     {
+        // The fallback "must be signed in" policy also covers URLs that match no endpoint,
+        // so anonymous visitors cannot probe which routes exist.
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync(new Uri("/api/does-not-exist", UriKind.Relative), TestContext.Current.CancellationToken);
+        using var response = await client.GetPathAsync("/api/does-not-exist");
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        await response.AssertProblemAsync(HttpStatusCode.Unauthorized);
     }
 }
