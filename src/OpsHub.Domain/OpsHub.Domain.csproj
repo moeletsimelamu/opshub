@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only dependency is the Identity base classes (IdentityUser), with no EF Core or ASP.NET Core. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="10.0.13" />
+  </ItemGroup>
+
+</Project>

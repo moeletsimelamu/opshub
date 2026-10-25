@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- Identifies this project's secrets store outside the repo (%APPDATA%\Microsoft\UserSecrets).
+         The ID is not a secret; the values stored there are. -->
+    <UserSecretsId>137b9013-14da-43b3-a174-d2b24f3923ea</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.18.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpsHub.Domain\OpsHub.Domain.csproj" />
+  </ItemGroup>
+
+  <!-- Lets the integration test project see internal types such as DevSeeder. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpsHub.Api.IntegrationTests" />
+  </ItemGroup>
+
+</Project>
