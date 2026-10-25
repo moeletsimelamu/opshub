@@ -1,14 +1,17 @@
 # OpsHub
 
+[![CI](https://github.com/moeletsimelamu/opshub/actions/workflows/ci.yml/badge.svg)](https://github.com/moeletsimelamu/opshub/actions/workflows/ci.yml)
+
 An internal service desk for a fictional logistics company. Employees log support tickets;
 support agents triage, assign and resolve them.
 
-> **Status: work in progress (Phase 7 of 10).** The API and the Angular interface work end to
+> **Status: work in progress (Phase 8 of 10).** The API and the Angular interface work end to
 > end: sign-in, a ticket queue with views, filters, search, sorting and paging, ticket detail
 > with the status workflow, assignment, replies, internal notes and *Send and resolve*, ticket
 > create/edit, user administration and change password. Session expiry, API outages, editing
 > conflicts and unsaved work are handled. Staff have a live dashboard (open tickets, triage,
-> status and priority breakdowns, agent workload, resolution time). CI (Phase 8) is not built yet.
+> status and priority breakdowns, agent workload, resolution time). Every push is built and
+> tested by GitHub Actions.
 
 - Architecture and security decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Visual design system and screen designs: [docs/DESIGN.md](docs/DESIGN.md)
@@ -16,8 +19,8 @@ support agents triage, assign and resolve them.
 ## Tech stack
 
 ASP.NET Core 10 Web API · Entity Framework Core 10 · SQLite · ASP.NET Core Identity ·
-Angular 21 (standalone components, signals, zoneless) · Angular CDK · xUnit ·
-*(planned)* GitHub Actions
+Angular 21 (standalone components, signals, zoneless) · Angular CDK · xUnit · Vitest ·
+GitHub Actions
 
 ## Run locally
 
@@ -63,9 +66,9 @@ forwards `/api` calls to the API on `https://localhost:7003` (see `proxy.conf.mj
 browser only ever talks to one origin and the session cookie works without CORS. To point it
 at another API address, set `OPSHUB_API_URL` before `npm start`.
 
-> **If `npm ci`/`npm install` fails with `Cannot read properties of null (reading 'edgesOut')`:**
-> that is a bug in npm 10.9.2 (bundled with Node 22.14). Run `npx npm@11 ci` instead, or
-> update npm.
+> `npm ci` installs from the committed lockfile and works with npm 10.9.2. Only *creating* a
+> lockfile from scratch (`npm install` without one) hits the npm 10.9.2 bug
+> `Cannot read properties of null (reading 'edgesOut')`; use `npx npm@11 install` in that case.
 
 ### Demo accounts
 
@@ -107,13 +110,32 @@ Details and limitations: [docs/ARCHITECTURE.md § 7](docs/ARCHITECTURE.md#7-secu
 ## Run tests
 
 ```bash
+# Backend: 58 unit + 108 integration tests
 dotnet test
+
+# Frontend: 47 unit and component tests (Vitest + jsdom, no browser needed)
+cd src/OpsHub.Web
+npx ng test --watch=false
 ```
 
-- `tests/OpsHub.Domain.Tests`: unit tests for the ticket status workflow (no database, milliseconds).
-- `tests/OpsHub.Api.IntegrationTests`: start the real API in memory against a private SQLite
-  database and act like a browser (they keep cookies and send the XSRF header). They cover
-  permissions, requester visibility, validation, the workflow and concurrency conflicts.
+| Suite | What it covers |
+|---|---|
+| `tests/OpsHub.Domain.Tests` | The ticket status workflow and the resolution-time statistics, with exact values (no database, milliseconds) |
+| `tests/OpsHub.Api.IntegrationTests` | The real API in memory against a private SQLite database, acting like a browser (cookies + XSRF header): sign-in and lockout, role and requester-visibility rules, validation, workflow, concurrency conflicts, dashboard figures |
+| `src/OpsHub.Web/**/*.spec.ts` | Error interpretation (incl. "server unreachable"), the loading-state rules, workflow buttons, the session interceptor, route guards, and the login, status-tag and dashboard components |
+
+Important behaviours were checked with **mutation testing by hand**: the rule was temporarily
+broken to confirm a test fails (requester visibility, internal notes, deactivated accounts,
+the fallback sign-in policy, dashboard filters, stale-data handling).
+
+### Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and every
+pull request, on a clean Ubuntu machine:
+
+- **Backend:** restore → Release build (warnings are errors) → all .NET tests
+- **Frontend:** `npm ci` → unit tests → production build (with bundle budgets) → `npm audit` of
+  production dependencies
 
 ## Database migrations
 

@@ -1,0 +1,79 @@
+# Continuous integration: every push to main and every pull request is built and tested
+# on a clean Linux machine, so "it works on my machine" is checked automatically.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # allows a manual run from the Actions tab
+
+# Least privilege: the jobs only need to read the code.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older, now-irrelevant run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · build and test (.NET)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Install the .NET SDK pinned in global.json
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      # Warnings are errors (Directory.Build.props), so analyzer findings fail the build.
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      # Unit tests (Domain) and integration tests (real API + in-memory SQLite).
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+  frontend:
+    name: Frontend · test and build (Angular)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/OpsHub.Web
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/OpsHub.Web/package-lock.json
+
+      # `npm ci` installs exactly what package-lock.json records, nothing newer.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests (Vitest)
+        run: npx ng test --watch=false
+
+      # Production build, including the bundle-size budgets in angular.json.
+      - name: Production build
+        run: npx ng build
+
+      # Fails on high or critical advisories in code shipped to browsers. Build-tool-only
+      # advisories (devDependencies) are reported locally with `npm audit`.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

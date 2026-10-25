@@ -49,7 +49,8 @@ would add operational cost without solving any problem this application has.
 | API docs | Built-in OpenAPI + Scalar UI | `/openapi/v1.json` and `/scalar` in Development. |
 | Errors | RFC 9457 ProblemDetails | Every error has the same JSON shape with a `traceId`. |
 | Logging | Built-in `ILogger`, source-generated `[LoggerMessage]`, JSON console outside Development | Structured logging without extra packages. |
-| Tests | xUnit 4 on Microsoft.Testing.Platform, `WebApplicationFactory` | Tests boot the real API against an in-memory SQLite database. |
+| Tests | xUnit 4 on Microsoft.Testing.Platform, `WebApplicationFactory`; Vitest + jsdom for Angular | Backend tests boot the real API against an in-memory SQLite database; frontend tests run without a browser. |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) | Every push and pull request is restored, built (warnings as errors), tested and audited on a clean Ubuntu runner. |
 | Time | `TimeProvider` via dependency injection | Tests can control the clock. |
 
 ## 4. Solution structure
