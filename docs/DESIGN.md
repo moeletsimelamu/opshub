@@ -30,7 +30,7 @@ company. It is a work tool used all day by some people and occasionally by every
 2. **Status is information, not decoration.** Status and priority always appear as **text plus a shape**.
    Colour reinforces meaning but is never the only signal.
 3. **One primary action per section.** Each section of a screen has at most one filled (primary) button:
-   the most likely next step. Everything else is secondary or a quiet text action. (Revised in Phase 6:
+   the most likely next step. Everything else is secondary or a quiet text action. (Revised after user testing:
    the ticket page has two sections, the workflow bar and the reply box, each with its own primary.)
 4. **Show the rules.** Controls appear only when the API says they will work (`permissions` on each ticket).
    When something can't be done, the interface says why instead of hiding the reason.
@@ -150,10 +150,10 @@ Weights: 400 regular, 500 medium (labels, table titles), 600 semibold (headings)
 | Support Agent | Dashboard · Queue · **New ticket** | Dashboard |
 | Administrator | Dashboard · Queue · Users · **New ticket** | Dashboard |
 
-Since Phase 7, staff land on the **Dashboard**, which summarises the desk and links into the Queue. Filters, search, sort and page live in the **URL**, so views can be
+Staff land on the **Dashboard**, which summarises the desk and links into the Queue. Filters, search, sort and page live in the **URL**, so views can be
 bookmarked and the back button works.
 
-### Dashboard (staff, Phase 7)
+### Dashboard (staff)
 Answers "what needs attention, and is the desk keeping up?" from live data only.
 
 1. Header: title, "Figures as of 14:05", *Refresh* (secondary).
@@ -199,7 +199,7 @@ Two columns on wide screens:
   description, a **timeline** that merges comments and status changes in time order, and the reply box.
   Staff also get **Send and resolve** in the reply box.
 
-  *Phase 6 change, from user testing:* the first version was an unlabelled row of buttons. A tester scrolled
+  *Change from user testing:* the first version was an unlabelled row of buttons. A tester scrolled
   to the reply box and couldn't find *Resolve*, so the bar was labelled and given its own background, and
   *Send and resolve* was added where agents finish their work.
 - **Side panel (right, 300px):** properties as a definition list: status, priority, category, requester,

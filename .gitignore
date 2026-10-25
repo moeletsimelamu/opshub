@@ -487,5 +487,5 @@ $RECYCLE.BIN/
 *.db-wal
 
 
-# Local Claude Code session settings
+# Local, machine-specific tool settings
 .claude/

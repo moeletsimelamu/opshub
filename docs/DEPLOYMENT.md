@@ -276,7 +276,7 @@ headers (`FrontendHostingTests`), trusted and untrusted proxies (`ReverseProxyTe
 HTTPS-only API (`HttpsOnlyApiTests`) and key storage (`KeyStorageTests`). The most important
 rules were mutation-tested by hand: each was broken on purpose to confirm a test fails.
 
-**By hand, during Phase 10** (Windows, without Docker): the published app with the Angular
+**By hand** (Windows, without Docker): the published app with the Angular
 build in `wwwroot`, run in Production over HTTPS from an empty database. Checks:
 - the smoke test;
 - in the browser:

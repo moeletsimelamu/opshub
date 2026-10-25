@@ -1,9 +1,9 @@
-# Phase 9 review: security, accessibility and responsive design
+# Security, accessibility and responsive-design review
 
-This review was done after the features were complete (Phases 1–8), to find problems that
+This review was done after the features were complete, to find problems that
 feature-by-feature work tends to miss. Every finding below was **reproduced first, fixed, and
 then re-checked** the same way it was found. Nothing here is a claim about something that
-wasn't tested; the [limits of this review](#limits-of-this-review) are listed at the end.
+wasn't tested; the [limits of this review](#4-limits-of-this-review) are listed at the end.
 
 Severity is a judgement for this application (an internal tool, behind sign-in):
 
@@ -44,7 +44,7 @@ Severity is a judgement for this application (an internal tool, behind sign-in):
 - **Anonymous endpoints:** each `[AllowAnonymous]` is intentional (`/health`, sign-in, the
   antiforgery token, the Development-only API docs). Everything else falls back to "signed in".
 - **Authorisation:** requester visibility, internal notes, ownership and role checks were
-  already covered by integration tests and hand mutation testing (Phases 3–4, 8).
+  already covered by integration tests and hand mutation testing.
 
 ## 2. Accessibility
 
@@ -115,7 +115,7 @@ Honest gaps. None of these were tested, so no claim is made about them:
 - **No penetration test.** The security review is a code and configuration review by the
   developer, not an independent test.
 
-## 5. Follow-up in Phase 10 (deployment)
+## 5. Follow-up during deployment preparation
 
 | Item | Outcome |
 |---|---|
@@ -123,6 +123,6 @@ Honest gaps. None of these were tested, so no claim is made about them:
 | A Content Security Policy for the Angular app | **Done.** `script-src 'self'` with no inline scripts; checked in the browser with no violations ([DEPLOYMENT.md § 11](DEPLOYMENT.md#11-how-this-was-verified)) |
 | HSTS `includeSubDomains` / preload | **Open.** Only once a real domain is chosen |
 
-Phase 10 also found and fixed a deployment bug: behind a proxy that wasn't configured, the
+Deployment preparation also found and fixed a bug: behind a proxy that wasn't configured, the
 first sign-in step failed with a 500. The API now refuses plain HTTP with a clear 400 and a
 log message (`HttpsOnlyApiTests`).

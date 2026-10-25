@@ -60,18 +60,24 @@ cost without solving any problem this application has.
 ```
 OpsHub/
 ├─ src/
-│  ├─ OpsHub.Domain/        entities, enums, role names, TicketWorkflow (no EF Core / ASP.NET Core)
+│  ├─ OpsHub.Domain/        entities, enums, role names, TicketWorkflow, Reporting statistics
+│  │                        (no EF Core / ASP.NET Core)
 │  ├─ OpsHub.Web/            Angular 21 app (see § 12)
 │  └─ OpsHub.Api/
 │     ├─ Auth/              Identity + cookie setup, policies, XSRF filter, ICurrentUser
 │     ├─ Common/            Result/Error types, ProblemDetails mapping, paging
-│     ├─ Data/              DbContext, entity configurations, migrations, seeding
-│     ├─ Features/          controller + DTOs + service per feature (Auth, Users, Tickets)
+│     ├─ Data/              DbContext, entity configurations, migrations, reference/demo data,
+│     │                     first-administrator bootstrap
+│     ├─ Features/          controller + DTOs + service per feature (Auth, Users, Tickets, Dashboard)
+│     ├─ Hosting/           serving the Angular app, reverse-proxy headers, session-key storage
+│     ├─ Security/          response security headers, HTTPS-only API
 │     └─ Program.cs         composition root: DI registrations and HTTP pipeline
 ├─ tests/
-│  ├─ OpsHub.Domain.Tests/          unit tests for the ticket workflow (no database)
+│  ├─ OpsHub.Domain.Tests/          unit tests for the workflow and statistics (no database)
 │  └─ OpsHub.Api.IntegrationTests/  real API + in-memory SQLite, browser-like client
 ├─ docs/
+├─ scripts/                 smoke test for a running instance, sign-in check script
+├─ Dockerfile               multi-stage build: Angular app + API in one image
 ├─ global.json              pins the .NET SDK and selects the test runner
 ├─ Directory.Build.props    shared compiler settings (nullable, warnings as errors, analyzers)
 └─ dotnet-tools.json        pins the dotnet-ef CLI version
@@ -82,7 +88,7 @@ OpsHub/
 repository interfaces would add code without adding a capability we use. The business
 rules are still kept apart in `OpsHub.Domain` so they can be unit-tested without a database.
 
-**Deviation from the Phase 1 plan:** `OpsHub.Domain` references
+**Deviation from the original plan:** `OpsHub.Domain` references
 `Microsoft.Extensions.Identity.Stores`, because `AppUser` inherits from `IdentityUser<Guid>`.
 That package contains only the Identity base classes; Domain still has no EF Core or ASP.NET Core
 dependency.
@@ -116,7 +122,7 @@ erDiagram
 | `CK_Tickets_Priority`: 1–4, `CK_Tickets_Status`: 1–5 | Tickets | The database rejects invalid enum values even if the API has a bug. |
 | `CK_Tickets_ResolvedAt` | Tickets | Active tickets have no resolution time; *Resolved* tickets must have one; *Closed* may or may not (a ticket can be closed without being resolved). |
 | Unique `NormalizedEmail` and `Categories.Name` | Indexes | Email is the sign-in name; category names appear in filters. |
-| `Version` concurrency token | Tickets | Rotated on every save. A stale edit throws `DbUpdateConcurrencyException`, to be returned as **409 Conflict**. |
+| `Version` concurrency token | Tickets | Rotated on every save. A stale edit throws `DbUpdateConcurrencyException`, which the API returns as **409 Conflict**. |
 | Enums stored as integers | Priority, Status | Sorting by priority gives Low → Critical; as text, "Critical" would sort first. |
 | Timestamps are UTC `DateTime` | All tables | EF Core's SQLite provider cannot order or compare `DateTimeOffset`. A value converter marks values read back as UTC. |
 
@@ -194,7 +200,7 @@ No email verification, password reset by email or multi-factor authentication. A
 set initial passwords. Session keys are stored unencrypted on the data volume
 ([DEPLOYMENT.md § 9](DEPLOYMENT.md#9-checklist-before-going-live)).
 
-### Hardening (Phases 9 and 10)
+### Hardening for production
 
 | Concern | Decision | Why |
 |---|---|---|
@@ -204,7 +210,7 @@ set initial passwords. Session keys are stored unencrypted on the data volume
 | Session keys | Persisted to a configurable folder (`/data/keys` in the container) under a fixed application name | Otherwise every restart or redeploy signs everyone out |
 | First run | Roles and starter categories are created in every environment; the first administrator comes from `Bootstrap` settings, only while no active administrator exists | A new installation is usable without demo data, and leftover settings can't create a second admin or reset a password |
 
-The Phase 9 findings and how each was verified: [REVIEW.md](REVIEW.md). Deployment settings:
+The review findings and how each was verified: [REVIEW.md](REVIEW.md). Deployment settings:
 [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 8. API conventions
@@ -263,7 +269,7 @@ tests that need no database.
 
 \* requires an assigned agent: someone must be working on a ticket in these statuses.
 
-- **Change from the Phase 1 plan:** reopening moves a ticket to *Open* rather than *In Progress*, so a
+- **Change from the original plan:** reopening moves a ticket to *Open* rather than *In Progress*, so a
   reopened ticket with no assigned agent goes back to the triage queue instead of being stuck.
 - Entering *Resolved* sets `ResolvedAt`; reopening clears it; closing keeps it (null if never resolved).
 - Every change writes a `TicketStatusHistory` row with who, when and an optional note.
@@ -278,7 +284,7 @@ tests that need no database.
 **Not recorded yet:** assignment changes are applied but not written to a history table (only status
 changes are). A full audit log is listed as a future improvement.
 
-## 10. Dashboard and reporting (Phase 7)
+## 10. Dashboard and reporting
 
 `GET /api/dashboard` computes everything from the database on each request; nothing is cached
 or hard-coded.
@@ -315,7 +321,7 @@ chart) made two tests fail as intended.
 |---|---|
 | SQLite limits (no `DateTimeOffset` ordering, limited `ALTER TABLE`, weak date arithmetic) | UTC `DateTime`; date maths in C# over projected rows; simple migrations. |
 | Data leaking to the wrong requester (IDOR) | One visibility query used everywhere, and integration tests that try to cross the boundary. |
-| Cookie auth gotchas (redirects, CSRF) | Handled in Phase 3: 401/403 instead of redirects, XSRF token filter, tests for both. |
+| Cookie auth gotchas (redirects, CSRF) | 401/403 instead of redirects, XSRF token filter, tests for both. |
 | Scope creep | Fixed feature list; extras go to *Future improvements*. |
 | SQLite in production allows one instance only | Accepted for an internal tool of this size. EF Core keeps a switch to PostgreSQL or SQL Server small; [DEPLOYMENT.md § 10](DEPLOYMENT.md#10-limits) lists what scaling out needs. |
 | Proxy misconfiguration breaks sign-in | The API refuses plain HTTP with a clear error and log message, and CI tests the container behind a real HTTPS proxy. |
@@ -359,7 +365,7 @@ src/OpsHub.Web/src/
 | **Server validation errors mapped onto form fields** (`ApiError.applyTo`) | A duplicate email or a rejected field appears next to the input, not as a generic error. |
 | **Dev proxy** (`proxy.conf.mjs`) instead of CORS | One origin in the browser, so the `SameSite=Strict` session cookie works unchanged. In production the API serves the built app itself (`Hosting/Frontend.cs`), which keeps the same single origin. |
 
-### Integration hardening (Phase 6)
+### Integration hardening
 
 | Situation | Behaviour |
 |---|---|
@@ -370,9 +376,9 @@ src/OpsHub.Web/src/
 | Leaving with unsaved work | A `canDeactivate` guard asks before discarding a half-written ticket or reply; `beforeunload` covers closing the tab or reloading. |
 | Reply then resolve | *Send and resolve* posts the reply, fetches the new version (the reply changed it), then resolves. If only the reply succeeds, the message says exactly that. |
 
-### Verification done in Phase 5
+### Verification
 
 Each screen was run in a real browser against the API (seeded demo data, throwaway database),
-at desktop (1024px) and phone (375px) widths, as an administrator and as a requester. Defects
-found and fixed during that review are listed in the Phase 5 commit message. Automated frontend
-tests are planned for Phase 8.
+at desktop and phone widths, as an administrator and as a requester. Automated frontend tests
+cover the error, loading-state and session rules (see the README). The later accessibility
+and responsive review is in [REVIEW.md](REVIEW.md).
