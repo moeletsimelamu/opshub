@@ -27,10 +27,16 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@v7
 
+      # Install exactly the SDK version written in global.json. Asking for "the newest allowed"
+      # instead made builds fail while Microsoft was part-way through publishing a release.
+      - name: Read the SDK version from global.json
+        id: sdk
+        run: echo "version=$(jq -r .sdk.version global.json)" >> "$GITHUB_OUTPUT"
+
       - name: Install the .NET SDK pinned in global.json
         uses: actions/setup-dotnet@v6
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ steps.sdk.outputs.version }}
 
       - name: Restore NuGet packages
         run: dotnet restore
