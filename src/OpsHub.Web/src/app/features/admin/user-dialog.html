@@ -1,0 +1,110 @@
+<div class="dialog-header">
+  <h2 id="user-dialog-title">{{ data.user ? 'Edit ' + data.user.displayName : 'Add a user' }}</h2>
+  <p class="dialog-description">
+    @if (data.user) {
+      Changing someone’s role or deactivating them signs them out within a minute.
+    } @else {
+      The user signs in with this email address and the password you set. Share the password with them securely.
+    }
+  </p>
+</div>
+
+@if (error(); as err) {
+  <div class="banner banner-error" role="alert">
+    <app-icon name="alert" />
+    <div class="banner-body">
+      <p class="banner-title">{{ err.title }}</p>
+      <p>{{ err.message }}</p>
+    </div>
+  </div>
+}
+
+<form [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <div class="field">
+    <label class="field-label" for="user-email">Email</label>
+    <input
+      id="user-email"
+      class="input"
+      type="email"
+      formControlName="email"
+      autocomplete="off"
+      spellcheck="false"
+      [attr.aria-invalid]="isInvalid(form.controls.email)"
+      aria-describedby="user-email-hint user-email-error"
+    />
+    @if (data.user) {
+      <p class="field-hint" id="user-email-hint">The sign-in email can’t be changed.</p>
+    }
+    <app-field-error [control]="form.controls.email" errorId="user-email-error" label="Email" />
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="user-name">Display name</label>
+    <input
+      id="user-name"
+      class="input"
+      formControlName="displayName"
+      autocomplete="off"
+      [attr.aria-invalid]="isInvalid(form.controls.displayName)"
+      aria-describedby="user-name-error"
+    />
+    <app-field-error [control]="form.controls.displayName" errorId="user-name-error" label="Display name" />
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="user-role">Role</label>
+    <select id="user-role" class="select" formControlName="role" aria-describedby="user-role-hint">
+      @for (role of roles; track role[0]) {
+        <option [ngValue]="role[0]">{{ role[1] }}</option>
+      }
+    </select>
+    <p class="field-hint" id="user-role-hint">
+      @if (data.isSelf) {
+        You can’t change your own role.
+      } @else {
+        Requesters report problems. Support agents work tickets. Administrators also manage users.
+      }
+    </p>
+  </div>
+
+  @if (!data.user) {
+    <div class="field">
+      <label class="field-label" for="user-password">Initial password</label>
+      <input
+        id="user-password"
+        class="input"
+        type="password"
+        formControlName="password"
+        autocomplete="new-password"
+        [attr.aria-invalid]="isInvalid(form.controls.password)"
+        aria-describedby="user-password-hint user-password-error"
+      />
+      <p class="field-hint" id="user-password-hint">At least 12 characters. The user can change it after signing in.</p>
+      <app-field-error [control]="form.controls.password" errorId="user-password-error" label="Password" />
+    </div>
+  } @else {
+    <label class="checkbox">
+      <input type="checkbox" formControlName="isActive" aria-describedby="user-active-hint" />
+      <span>
+        <strong>Active</strong>
+        <span class="field-hint" id="user-active-hint">
+          @if (data.isSelf) {
+            You can’t deactivate your own account.
+          } @else {
+            Deactivated users can’t sign in. Their unfinished tickets go back to the queue.
+          }
+        </span>
+      </span>
+    </label>
+  }
+
+  <div class="dialog-actions">
+    <button type="button" class="btn btn-secondary" (click)="dialogRef.close()">Cancel</button>
+    <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      @if (saving()) {
+        <span class="spinner" aria-hidden="true"></span>
+      }
+      {{ data.user ? 'Save changes' : 'Add user' }}
+    </button>
+  </div>
+</form>

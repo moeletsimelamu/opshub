@@ -1,0 +1,275 @@
+<div class="page detail">
+  <a routerLink="/tickets" class="back"><app-icon name="arrow-left" /> {{ session.isStaff() ? 'Queue' : 'My tickets' }}</a>
+
+  @if (state().kind === 'error' && !ticket()) {
+    @if ($any(state()).error.status === 404) {
+      <div class="panel not-found">
+        <h1>Ticket not found</h1>
+        <p>It may not exist, or it belongs to someone else.</p>
+        <a routerLink="/tickets" class="btn btn-secondary">Back to tickets</a>
+      </div>
+    } @else {
+      <div class="banner banner-error" role="alert">
+        <app-icon name="alert" />
+        <div class="banner-body">
+          <p class="banner-title">This ticket couldn’t be loaded</p>
+          <p>{{ $any(state()).error.message }}</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="retry()"><app-icon name="refresh" /> Try again</button>
+      </div>
+    }
+  } @else if (!ticket()) {
+    <div class="loading" aria-busy="true">
+      <p class="sr-only" role="status">Loading ticket…</p>
+      <span class="skeleton" style="width: 90px"></span>
+      <span class="skeleton" style="width: 60%; height: 24px"></span>
+      <span class="skeleton" style="width: 40%"></span>
+      <div class="layout">
+        <div class="panel skeleton-panel"><span class="skeleton" style="width: 90%"></span><span class="skeleton" style="width: 75%"></span><span class="skeleton" style="width: 80%"></span></div>
+        <div class="panel skeleton-panel"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+      </div>
+    </div>
+  } @else {
+    @let t = ticket()!;
+
+    <header class="ticket-header">
+      <div class="heading">
+        <p class="ref mono">{{ t.reference }}</p>
+        <h1 tabindex="-1">{{ t.title }}</h1>
+        <p class="meta">
+          Reported by {{ t.requester.displayName }} · <app-relative-time [value]="t.createdAt" />
+        </p>
+      </div>
+      @if (t.permissions.canEdit) {
+        <a [routerLink]="['/tickets', t.id, 'edit']" class="btn btn-secondary"><app-icon name="edit" /> Edit</a>
+      }
+    </header>
+
+    @if (needsReply()) {
+      <div class="banner banner-warning" role="status">
+        <app-icon name="alert" />
+        <div class="banner-body">
+          <p class="banner-title">The support team needs more information from you</p>
+          <p>Read their question in the activity below and reply. Your reply sends the ticket back to them.</p>
+        </div>
+      </div>
+    }
+
+    @if (actionError(); as err) {
+      @if (err.code === 'concurrency_conflict') {
+        <div class="banner banner-warning" role="alert">
+          <app-icon name="refresh" />
+          <div class="banner-body">
+            <p class="banner-title">This ticket was changed by someone else</p>
+            <p>Your change wasn’t saved, so nothing was overwritten. Reload to see the latest version, then try again.</p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Reload</button>
+        </div>
+      } @else {
+        <div class="banner banner-error" role="alert">
+          <app-icon name="alert" />
+          <div class="banner-body">
+            <p class="banner-title">{{ err.title }}</p>
+            <p>{{ err.message }}</p>
+            @if (err.traceId) {
+              <p class="banner-meta">Reference for support: <span class="mono">{{ err.traceId }}</span></p>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    @if (actions().length > 0) {
+      <div class="actions" role="group" aria-label="Change status" tabindex="-1">
+        @for (action of actions(); track action.to) {
+          <button
+            type="button"
+            class="btn"
+            [class.btn-primary]="action.primary"
+            [class.btn-secondary]="!action.primary"
+            [disabled]="busy() !== null"
+            (click)="runAction(action)"
+          >
+            @if (busy() === 'status-' + action.to) {
+              <span class="spinner" aria-hidden="true"></span>
+            }
+            {{ action.label }}
+          </button>
+        }
+        @if (session.isStaff() && t.status === 'Open' && !t.assignedAgent) {
+          <p class="actions-hint"><app-icon name="alert" [size]="14" /> Assign an agent to start work on this ticket.</p>
+        }
+      </div>
+    }
+
+    <div class="layout">
+      <div class="main">
+        <section class="panel description" aria-labelledby="description-title">
+          <h2 id="description-title" class="section-title">Description</h2>
+          <p class="prose">{{ t.description }}</p>
+        </section>
+
+        <section aria-labelledby="activity-title">
+          <h2 id="activity-title" class="section-title">Activity</h2>
+          @if (timeline().length === 0) {
+            <p class="quiet">No replies or status changes yet.</p>
+          } @else {
+            <ol class="timeline">
+              @for (item of timeline(); track item.key) {
+                @if (item.kind === 'comment') {
+                  <li class="comment" [class.internal]="item.comment.isInternal">
+                    <span class="avatar" [class.staff]="item.comment.authorIsStaff" aria-hidden="true">{{ initials(item.comment.author.displayName) }}</span>
+                    <div class="comment-body">
+                      <p class="comment-meta">
+                        <span class="author">{{ item.comment.author.displayName }}</span>
+                        @if (item.comment.authorIsStaff) {
+                          <span class="role-label">Support</span>
+                        }
+                        <app-relative-time [value]="item.comment.createdAt" />
+                      </p>
+                      @if (item.comment.isInternal) {
+                        <p class="internal-label"><app-icon name="lock" [size]="12" /> Internal note: not visible to the requester</p>
+                      }
+                      <p class="prose">{{ item.comment.body }}</p>
+                    </div>
+                  </li>
+                } @else {
+                  <li class="event">
+                    <span class="event-dot" aria-hidden="true"></span>
+                    <div>
+                      <p>
+                        <span class="author">{{ item.entry.changedBy.displayName }}</span>
+                        changed the status from {{ statusLabel(item.entry.fromStatus) }} to
+                        <strong>{{ statusLabel(item.entry.toStatus) }}</strong>
+                        · <app-relative-time [value]="item.entry.changedAt" />
+                      </p>
+                      @if (item.entry.note) {
+                        <p class="event-note">“{{ item.entry.note }}”</p>
+                      }
+                    </div>
+                  </li>
+                }
+              }
+            </ol>
+          }
+        </section>
+
+        @if (t.permissions.canComment) {
+          <section class="panel composer" aria-labelledby="composer-title">
+            <h2 id="composer-title" class="section-title">{{ needsReply() ? 'Your reply' : 'Add a comment' }}</h2>
+            <form [formGroup]="commentForm" (ngSubmit)="addComment()" novalidate>
+              @if (t.permissions.canAddInternalComment) {
+                <fieldset class="visibility">
+                  <legend class="sr-only">Who can see this comment</legend>
+                  <label class="choice">
+                    <input type="radio" formControlName="visibility" value="public" />
+                    Reply to requester
+                  </label>
+                  <label class="choice">
+                    <input type="radio" formControlName="visibility" value="internal" />
+                    <app-icon name="lock" [size]="12" /> Internal note
+                  </label>
+                </fieldset>
+              }
+              <label class="sr-only" for="comment-body">Comment</label>
+              <textarea
+                id="comment-body"
+                class="textarea"
+                formControlName="body"
+                rows="4"
+                maxlength="4000"
+                [class.internal-input]="isInternalComment()"
+                [attr.placeholder]="isInternalComment() ? 'Only support staff will see this note' : 'Write a reply…'"
+                [attr.aria-invalid]="isInvalid(commentForm.controls.body)"
+                aria-describedby="comment-error"
+              ></textarea>
+              <app-field-error [control]="commentForm.controls.body" errorId="comment-error" label="Comment" />
+              <div class="composer-actions">
+                <button type="submit" class="btn btn-primary" [disabled]="busy() !== null">
+                  @if (busy() === 'comment') {
+                    <span class="spinner" aria-hidden="true"></span>
+                  }
+                  {{ isInternalComment() ? 'Add internal note' : 'Send reply' }}
+                </button>
+              </div>
+            </form>
+          </section>
+        } @else {
+          <p class="quiet closed-note"><app-icon name="lock" [size]="14" /> This ticket is closed. Report a new ticket if the problem comes back.</p>
+        }
+      </div>
+
+      <aside class="side panel" aria-label="Ticket details">
+        <dl class="props">
+          <dt>Status</dt>
+          <dd><app-status-tag [status]="t.status" /></dd>
+          <dt>Priority</dt>
+          <dd><app-priority-meter [priority]="t.priority" /></dd>
+          <dt>Category</dt>
+          <dd>{{ t.category.name }}</dd>
+          <dt>Requester</dt>
+          <dd>{{ t.requester.displayName }}</dd>
+          <dt>Assignee</dt>
+          <dd>
+            @if (t.assignedAgent) {
+              {{ t.assignedAgent.displayName }}
+            } @else {
+              <span class="quiet">Unassigned</span>
+            }
+          </dd>
+          <dt>Created</dt>
+          <dd><app-relative-time [value]="t.createdAt" [exactOnly]="true" /></dd>
+          <dt>Updated</dt>
+          <dd><app-relative-time [value]="t.updatedAt" /></dd>
+          @if (t.resolvedAt) {
+            <dt>Resolved</dt>
+            <dd><app-relative-time [value]="t.resolvedAt" [exactOnly]="true" /></dd>
+          }
+        </dl>
+
+        @if (t.permissions.canAssign) {
+          <div class="assign">
+            <h2 class="section-title">Assignment</h2>
+            @if (canAssignToMe()) {
+              <button type="button" class="btn btn-secondary assign-me" [disabled]="busy() !== null" (click)="assign(session.user()!.id)">
+                @if (busy() === 'assign') {
+                  <span class="spinner" aria-hidden="true"></span>
+                }
+                Assign to me
+              </button>
+            }
+            <div class="field">
+              <label class="field-label" for="assignee">Assign to</label>
+              <div class="assign-row">
+                <select
+                  id="assignee"
+                  class="select"
+                  [value]="selectedAgent()"
+                  (change)="selectedAgent.set($any($event.target).value)"
+                >
+                  <option value="">Unassigned</option>
+                  @if (agents(); as list) {
+                    @for (agent of list; track agent.id) {
+                      <option [value]="agent.id" [selected]="agent.id === selectedAgent()">
+                        {{ agent.displayName }} ({{ agent.activeTicketCount }} active)
+                      </option>
+                    }
+                  } @else if (t.assignedAgent) {
+                    <option [value]="t.assignedAgent.id" selected>{{ t.assignedAgent.displayName }}</option>
+                  }
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  [disabled]="busy() !== null || agents() === null || selectedAgent() === (t.assignedAgent?.id ?? '')"
+                  (click)="assign(selectedAgent() || null)"
+                >Save</button>
+              </div>
+              <p class="field-hint">Only active support agents are listed, with their current workload.</p>
+            </div>
+          </div>
+        }
+      </aside>
+    </div>
+  }
+</div>

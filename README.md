@@ -3,23 +3,26 @@
 An internal service desk for a fictional logistics company. Employees log support tickets;
 support agents triage, assign and resolve them.
 
-> **Status: work in progress (Phase 4 of 10).** The backend API is functional: sign-in with a
-> secure session cookie, role-based authorisation, user administration, and ticket management
-> (create, edit, assign, status workflow, comments with internal notes, history, filtering,
-> search, sorting, paging). It is covered by unit and integration tests. The dashboard and the
-> Angular interface are not built yet.
+> **Status: work in progress (Phase 5 of 10).** The API and the Angular interface work end to
+> end: sign-in, a ticket queue with views, filters, search, sorting and paging, ticket detail
+> with the status workflow, assignment, replies and internal notes, ticket create/edit, and
+> user administration. The dashboard (Phase 7) and CI (Phase 8) are not built yet.
 
-Design and security decisions are recorded in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- Architecture and security decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Visual design system and screen designs: [docs/DESIGN.md](docs/DESIGN.md)
 
 ## Tech stack
 
 ASP.NET Core 10 Web API · Entity Framework Core 10 · SQLite · ASP.NET Core Identity ·
-xUnit · *(planned)* Angular 21 · GitHub Actions
+Angular 21 (standalone components, signals, zoneless) · Angular CDK · xUnit ·
+*(planned)* GitHub Actions
 
 ## Run locally
 
-Prerequisites: [.NET SDK 10.0.401+](https://dotnet.microsoft.com/download) and a trusted
-HTTPS development certificate. The session cookie is only ever sent over HTTPS.
+Prerequisites: [.NET SDK 10.0.401+](https://dotnet.microsoft.com/download),
+[Node.js 22.12+](https://nodejs.org/) and a trusted HTTPS development certificate.
+
+### 1. The API
 
 ```bash
 # 1. Trust the local HTTPS certificate (once per machine)
@@ -35,13 +38,32 @@ dotnet user-secrets set "Seed:DemoPassword" "<at least 12 characters>" --project
 dotnet run --project src/OpsHub.Api --launch-profile https
 ```
 
-Then open:
+Then you can open:
 
 | URL | What |
 |---|---|
 | https://localhost:7003/health | Health check (`Healthy` when the database is reachable) |
 | https://localhost:7003/scalar | Interactive API documentation |
 | https://localhost:7003/openapi/v1.json | OpenAPI document |
+
+### 2. The web app
+
+In a second terminal:
+
+```bash
+cd src/OpsHub.Web
+npm ci
+npm start
+```
+
+Open **http://localhost:4200** and sign in with a demo account below. The Angular dev server
+forwards `/api` calls to the API on `https://localhost:7003` (see `proxy.conf.mjs`), so the
+browser only ever talks to one origin and the session cookie works without CORS. To point it
+at another API address, set `OPSHUB_API_URL` before `npm start`.
+
+> **If `npm ci`/`npm install` fails with `Cannot read properties of null (reading 'edgesOut')`:**
+> that is a bug in npm 10.9.2 (bundled with Node 22.14). Run `npx npm@11 ci` instead, or
+> update npm.
 
 ### Demo accounts
 
@@ -97,3 +119,12 @@ dotnet test
 # After changing an entity or configuration:
 dotnet ef migrations add <Name> --project src/OpsHub.Api --output-dir Data/Migrations
 ```
+
+## Known limitations (so far)
+
+- Assignment changes aren't written to a history table (status changes are).
+- No password reset by email, MFA or email verification (demo scope).
+- When the mobile navigation drawer opens, focus isn't yet moved into it (Phase 9 accessibility review).
+- `npm audit` reports advisories in `undici`, used only by the Angular **build tool**
+  (`@angular/build`) on the developer's machine. It isn't shipped to the browser; the production
+  dependencies report 0 vulnerabilities (`npm audit --omit=dev`). Waiting for an Angular patch.

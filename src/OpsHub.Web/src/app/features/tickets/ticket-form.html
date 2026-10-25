@@ -1,0 +1,128 @@
+<div class="page form-page">
+  <a [routerLink]="cancelLink()" class="back"><app-icon name="arrow-left" /> {{ isEdit() ? 'Back to ticket' : 'Back' }}</a>
+
+  <header class="form-header">
+    @if (existing(); as t) {
+      <p class="ref mono">{{ t.reference }}</p>
+    }
+    <h1>{{ isEdit() ? 'Edit ticket' : 'Report a problem' }}</h1>
+    @if (!isEdit()) {
+      <p class="page-subtitle">Describe what’s wrong. The support team will pick it up and keep you posted here.</p>
+    }
+  </header>
+
+  @if (loadError(); as err) {
+    <div class="banner banner-error" role="alert">
+      <app-icon name="alert" />
+      <div class="banner-body">
+        <p class="banner-title">{{ err.status === 404 ? 'Ticket not found' : 'This ticket couldn’t be loaded' }}</p>
+        <p>{{ err.message }}</p>
+      </div>
+    </div>
+  } @else {
+    @if (existing() && !existing()!.permissions.canEdit) {
+      <div class="banner banner-info" role="status">
+        <app-icon name="lock" />
+        <p class="banner-body">
+          This ticket can no longer be edited{{ existing()!.status === 'Closed' ? ' because it is closed' : ': work on it has started' }}.
+          Add a comment on the ticket instead.
+        </p>
+      </div>
+    }
+
+    @if (saveError(); as err) {
+      <div class="banner" [class.banner-warning]="err.code === 'concurrency_conflict'" [class.banner-error]="err.code !== 'concurrency_conflict'" role="alert">
+        <app-icon name="alert" />
+        <div class="banner-body">
+          <p class="banner-title">{{ err.code === 'concurrency_conflict' ? 'Someone else changed this ticket' : 'Your changes weren’t saved' }}</p>
+          <p>{{ err.message }}</p>
+        </div>
+      </div>
+    }
+
+    <form class="panel" [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="isEdit() && !existing()">
+      <div class="field">
+        <label class="field-label" for="title">Title</label>
+        <input
+          id="title"
+          class="input"
+          formControlName="title"
+          maxlength="200"
+          autocomplete="off"
+          [attr.aria-invalid]="isInvalid(form.controls.title)"
+          aria-describedby="title-hint title-error"
+        />
+        <p class="field-hint" id="title-hint">A short summary, e.g. “Label printer in goods receiving not printing”.</p>
+        <app-field-error [control]="form.controls.title" errorId="title-error" label="Title" />
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label class="field-label" for="category">Category</label>
+          <select
+            id="category"
+            class="select"
+            formControlName="categoryId"
+            [attr.aria-invalid]="isInvalid(form.controls.categoryId)"
+            aria-describedby="category-error"
+          >
+            <option [ngValue]="0" disabled>Choose a category</option>
+            @for (category of categories() ?? []; track category.id) {
+              <option [ngValue]="category.id">{{ category.name }}</option>
+            }
+          </select>
+          @if (categories() === null) {
+            <p class="field-error">Categories couldn’t be loaded. Reload the page to try again.</p>
+          }
+          <app-field-error [control]="form.controls.categoryId" errorId="category-error" label="Category" />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="priority">Priority</label>
+          <select id="priority" class="select" formControlName="priority" aria-describedby="priority-hint">
+            @for (priority of priorities; track priority) {
+              <option [ngValue]="priority">{{ priority }}</option>
+            }
+          </select>
+          <p class="field-hint" id="priority-hint">
+            @if (form.controls.priority.disabled && existing()?.permissions?.canEdit) {
+              Only support staff can change the priority after a ticket is submitted.
+            } @else {
+              {{ priorityHint() }}
+            }
+          </p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="description">Description</label>
+        <textarea
+          id="description"
+          class="textarea"
+          formControlName="description"
+          rows="8"
+          maxlength="4000"
+          [attr.aria-invalid]="isInvalid(form.controls.description)"
+          aria-describedby="description-hint description-error"
+        ></textarea>
+        <p class="field-hint description-hint" id="description-hint">
+          <span>What happened, where, and since when. Include any error messages.</span>
+          @if (descriptionLength() > 3500) {
+            <span class="tabular">{{ descriptionLength() }} / 4000</span>
+          }
+        </p>
+        <app-field-error [control]="form.controls.description" errorId="description-error" label="Description" />
+      </div>
+
+      <div class="form-actions">
+        <a [routerLink]="cancelLink()" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || form.disabled">
+          @if (saving()) {
+            <span class="spinner" aria-hidden="true"></span>
+          }
+          {{ isEdit() ? 'Save changes' : 'Submit ticket' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

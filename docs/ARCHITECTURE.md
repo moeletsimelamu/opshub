@@ -20,12 +20,12 @@ administrators manage users. All data is fictional.
 ```mermaid
 flowchart LR
   subgraph Browser
-    A["Angular 21 SPA (planned)"]
+    A["Angular 21 SPA (dev server :4200 proxies /api)"]
   end
   subgraph "ASP.NET Core 10 (single process)"
-    M["Middleware: exception handler, auth (planned), logging"]
-    C["Controllers + DTOs + validation (planned)"]
-    S["Feature services (planned)"]
+    M["Middleware: exception handler, auth, rate limiting"]
+    C["Controllers + DTOs + validation"]
+    S["Feature services"]
     D["OpsHub.Domain: entities, enums, rules"]
     E["EF Core DbContext + ASP.NET Core Identity"]
   end
@@ -58,6 +58,7 @@ would add operational cost without solving any problem this application has.
 OpsHub/
 ├─ src/
 │  ├─ OpsHub.Domain/        entities, enums, role names, TicketWorkflow (no EF Core / ASP.NET Core)
+│  ├─ OpsHub.Web/            Angular 21 app (see § 11)
 │  └─ OpsHub.Api/
 │     ├─ Auth/              Identity + cookie setup, policies, XSRF filter, ICurrentUser
 │     ├─ Common/            Result/Error types, ProblemDetails mapping, paging
@@ -264,3 +265,46 @@ changes are). A full audit log is listed as a future improvement.
 | Data leaking to the wrong requester (IDOR) | One visibility query used everywhere, and integration tests that try to cross the boundary. |
 | Cookie auth gotchas (redirects, CSRF) | Handled in Phase 3: 401/403 instead of redirects, XSRF token filter, tests for both. |
 | Scope creep | Fixed feature list; extras go to *Future improvements*. |
+
+## 11. Frontend (Angular)
+
+The visual design system, screens and responsive rules are specified in
+[DESIGN.md](DESIGN.md), written before any UI code. This section covers the engineering.
+
+```
+src/OpsHub.Web/src/
+├─ styles/                 tokens.css (design tokens), base.css, components.css (buttons, fields, tables…)
+└─ app/
+   ├─ core/
+   │  ├─ api/              typed API clients (TicketsApi, UsersApi), models, ApiError (ProblemDetails)
+   │  ├─ auth/             SessionService (signals), session interceptor, route guards
+   │  ├─ load-state.ts     loading / ready / error states for every screen
+   │  └─ toast.service.ts
+   ├─ layout/              Shell (sidebar / mobile drawer), not-found page
+   ├─ shared/ui/           Icon, StatusTag, PriorityMeter, Pagination, EmptyState, FieldError, Toasts, RelativeTime
+   └─ features/
+      ├─ auth/             Login
+      ├─ tickets/          TicketList, TicketDetail, TicketForm, StatusDialog, ticket-actions.ts
+      └─ admin/            UserList, UserDialog
+```
+
+| Decision | Why |
+|---|---|
+| **Standalone components, signals, zoneless change detection** (Angular 21 defaults) | Less boilerplate than NgModules; signals make data flow explicit. Zoneless means templates update only when a signal they read changes, so form values that drive the template are exposed as signals. |
+| **Lazy-loaded routes** | The login page doesn't download the ticket screens. The production build's first load is about 84 kB over the network. |
+| **No UI component library**; Angular CDK only for dialogs (focus trap, Esc, focus return) | A library would bring its own look ("generic template"); building small components shows the design system. The CDK provides the hard accessibility parts. |
+| **State in the URL** for the ticket list (view, search, filters, sort, page) | Views can be bookmarked and shared, and the back button works. |
+| **`LoadState<T>`** (`loading` / `ready` / `error`, keeping previous data while reloading) | Every screen handles all three states the same way; pages don't flash empty on refresh. |
+| **Session from the API, not from storage** | The session is an HttpOnly cookie that JavaScript can't read. The app calls `/api/auth/me` on start-up and keeps only the profile in a signal. No tokens in `localStorage`. |
+| **XSRF via Angular's built-in support** | Angular copies the `XSRF-TOKEN` cookie into `X-XSRF-TOKEN` on unsafe requests; the token is refreshed before sign-in. |
+| **Session interceptor** | Any 401 (expired, deactivated, signed out elsewhere) clears the user and returns to the login page with a `returnUrl`. |
+| **Permissions come from the API** (`ticket.permissions`) | The UI shows only actions that will work and explains the ones that won't. It doesn't duplicate business rules; the API remains the authority. |
+| **Server validation errors mapped onto form fields** (`ApiError.applyTo`) | A duplicate email or a rejected field appears next to the input, not as a generic error. |
+| **Dev proxy** (`proxy.conf.mjs`) instead of CORS | One origin in the browser, so the `SameSite=Strict` session cookie works unchanged. In production the API will serve the built app (Phase 10). |
+
+### Verification done in Phase 5
+
+Each screen was run in a real browser against the API (seeded demo data, throwaway database),
+at desktop (1024px) and phone (375px) widths, as an administrator and as a requester. Defects
+found and fixed during that review are listed in the Phase 5 commit message. Automated frontend
+tests are planned for Phase 8.

@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 *.db-shm
 *.db-wal
 
+
+# Local Claude Code session settings
+.claude/

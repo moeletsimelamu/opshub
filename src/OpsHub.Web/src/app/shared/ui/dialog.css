@@ -1,0 +1,36 @@
+/* Shared look for CDK dialogs (focus trap, Esc to close and focus return come from the CDK). */
+:host {
+  display: grid;
+  gap: var(--space-4);
+  width: min(480px, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100dvh - 2 * var(--space-5));
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+}
+
+.dialog-header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.dialog-description {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}

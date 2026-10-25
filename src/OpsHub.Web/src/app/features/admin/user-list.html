@@ -1,0 +1,118 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Users</h1>
+      <p class="page-subtitle tabular" aria-live="polite">
+        @if (state().data; as page) {
+          {{ page.totalCount }} {{ page.totalCount === 1 ? 'person' : 'people' }}
+        } @else {
+          &nbsp;
+        }
+      </p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="openDialog(null)"><app-icon name="plus" /> Add user</button>
+  </header>
+
+  <div class="toolbar" role="search">
+    <div class="search">
+      <label for="user-search" class="sr-only">Search users</label>
+      <app-icon name="search" class="search-icon" />
+      <input
+        id="user-search"
+        class="input"
+        type="search"
+        placeholder="Name or email"
+        [value]="searchText()"
+        (input)="searchText.set($any($event.target).value)"
+      />
+    </div>
+    <label class="sr-only" for="role-filter">Role</label>
+    <select id="role-filter" class="select filter" (change)="setRole($any($event.target).value)">
+      <option value="" [selected]="role() === ''">Any role</option>
+      @for (r of roles; track r[0]) {
+        <option [value]="r[0]" [selected]="role() === r[0]">{{ r[1] }}</option>
+      }
+    </select>
+    <label class="sr-only" for="status-filter">Status</label>
+    <select id="status-filter" class="select filter" (change)="setStatus($any($event.target).value)">
+      <option value="" [selected]="status() === ''">Any status</option>
+      <option value="active" [selected]="status() === 'active'">Active</option>
+      <option value="inactive" [selected]="status() === 'inactive'">Deactivated</option>
+    </select>
+    @if (hasFilters()) {
+      <button type="button" class="btn btn-ghost" (click)="clearFilters()">Clear filters</button>
+    }
+  </div>
+
+  @if (state().kind === 'error' && !state().data) {
+    <div class="banner banner-error" role="alert">
+      <app-icon name="alert" />
+      <div class="banner-body">
+        <p class="banner-title">Users couldn’t be loaded</p>
+        <p>{{ $any(state()).error.message }}</p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="retry()"><app-icon name="refresh" /> Try again</button>
+    </div>
+  } @else {
+    <div class="panel table-panel" [class.is-refreshing]="state().kind === 'loading' && state().data">
+      <table class="data-table" [attr.aria-busy]="state().kind === 'loading'">
+        <caption class="sr-only">Users, sorted by name</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col" class="col-role">Role</th>
+            <th scope="col" class="col-status">Status</th>
+            <th scope="col" class="col-created">Added</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (state().data; as page) {
+            @for (user of page.items; track user.id) {
+              <tr [class.inactive]="!user.isActive">
+                <td>
+                  <span class="name">{{ user.displayName }}</span>
+                  <span class="cell-meta">{{ user.email }}</span>
+                </td>
+                <td class="col-role">{{ roleLabels[user.role] }}</td>
+                <td class="col-status">
+                  <span class="state" [class.off]="!user.isActive">
+                    <span class="dot" aria-hidden="true"></span>{{ user.isActive ? 'Active' : 'Deactivated' }}
+                  </span>
+                </td>
+                <td class="col-created"><app-relative-time [value]="user.createdAt" [dateOnly]="true" /></td>
+                <td class="col-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="openDialog(user)">
+                    Edit<span class="sr-only"> {{ user.displayName }}</span>
+                  </button>
+                </td>
+              </tr>
+            }
+          } @else {
+            @for (row of [1, 2, 3, 4, 5]; track row) {
+              <tr aria-hidden="true">
+                <td><span class="skeleton" style="width: 140px"></span><span class="skeleton" style="width: 180px; margin-top: 8px"></span></td>
+                <td class="col-role"><span class="skeleton" style="width: 90px"></span></td>
+                <td class="col-status"><span class="skeleton" style="width: 70px"></span></td>
+                <td class="col-created"><span class="skeleton" style="width: 90px"></span></td>
+                <td class="col-actions"></td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+
+      @if (state().data?.totalCount === 0) {
+        <app-empty-state heading="No users match these filters" description="Try a different name or email, or clear the filters.">
+          <button type="button" class="btn btn-secondary" (click)="clearFilters()">Clear filters</button>
+        </app-empty-state>
+      }
+    </div>
+
+    @if (state().data; as p) {
+      @if (p.totalCount > 0) {
+        <app-pagination [page]="p.page" [pageSize]="p.pageSize" [total]="p.totalCount" [totalPages]="p.totalPages" (pageChange)="page.set($event)" />
+      }
+    }
+  }
+</div>

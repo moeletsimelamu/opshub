@@ -1,0 +1,76 @@
+<a class="skip-link" href="#main" (click)="skipToContent($event)">Skip to content</a>
+
+<div class="frame" [class.menu-open]="menuOpen()" (keydown.escape)="menuOpen.set(false)">
+  <header class="topbar">
+    <button
+      type="button"
+      class="menu-button"
+      aria-label="Menu"
+      [attr.aria-expanded]="menuOpen()"
+      aria-controls="sidebar"
+      (click)="menuOpen.set(!menuOpen())"
+    >
+      <app-icon [name]="menuOpen() ? 'x' : 'menu'" [size]="20" />
+    </button>
+    <a routerLink="/tickets" class="wordmark"><span class="mark" aria-hidden="true"></span>OpsHub</a>
+  </header>
+
+  <nav id="sidebar" class="sidebar" aria-label="Main">
+    <div class="brand">
+      <a routerLink="/tickets" class="wordmark"><span class="mark" aria-hidden="true"></span>OpsHub</a>
+      <p class="org">Marula Logistics service desk</p>
+    </div>
+
+    <a routerLink="/tickets/new" class="btn btn-primary new-ticket">
+      <app-icon name="plus" /> New ticket
+    </a>
+
+    <ul class="nav">
+      <li>
+        <a
+          routerLink="/tickets"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ paths: 'subset', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' }"
+          ariaCurrentWhenActive="page"
+        >
+          <app-icon name="inbox" />
+          {{ session.isStaff() ? 'Queue' : 'My tickets' }}
+        </a>
+      </li>
+      @if (session.isAdmin()) {
+        <li>
+          <a routerLink="/admin/users" routerLinkActive="active" ariaCurrentWhenActive="page">
+            <app-icon name="users" /> Users
+          </a>
+        </li>
+      }
+    </ul>
+
+    <div class="account">
+      <div class="who">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="who-text">
+          <span class="name">{{ session.user()?.displayName }}</span>
+          <span class="role">{{ roleLabel() }}</span>
+        </span>
+      </div>
+      <button type="button" class="btn btn-ghost sign-out" [disabled]="signingOut()" (click)="signOut()">
+        <app-icon name="log-out" /> Sign out
+      </button>
+    </div>
+  </nav>
+
+  <button
+    type="button"
+    class="scrim"
+    tabindex="-1"
+    aria-hidden="true"
+    (click)="menuOpen.set(false)"
+  ></button>
+
+  <main id="main" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>
+
+<app-toast-host />
