@@ -47,13 +47,13 @@
     </ul>
 
     <div class="account">
-      <div class="who">
+      <a class="who" routerLink="/account" routerLinkActive="active" ariaCurrentWhenActive="page" aria-label="Your account: {{ session.user()?.displayName }}, {{ roleLabel() }}">
         <span class="avatar" aria-hidden="true">{{ initials() }}</span>
         <span class="who-text">
           <span class="name">{{ session.user()?.displayName }}</span>
           <span class="role">{{ roleLabel() }}</span>
         </span>
-      </div>
+      </a>
       <button type="button" class="btn btn-ghost sign-out" [disabled]="signingOut()" (click)="signOut()">
         <app-icon name="log-out" /> Sign out
       </button>

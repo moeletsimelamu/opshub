@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { roleGuard, signedInGuard, signedOutGuard } from './core/auth/guards';
+import { unsavedChangesGuard } from './core/unsaved-changes';
 import { Shell } from './layout/shell';
 
 /*
@@ -27,18 +28,26 @@ export const routes: Routes = [
       },
       {
         path: 'tickets/new',
+        canDeactivate: [unsavedChangesGuard],
         title: 'New ticket · OpsHub',
         loadComponent: () => import('./features/tickets/ticket-form').then((m) => m.TicketForm),
       },
       {
         path: 'tickets/:id',
+        canDeactivate: [unsavedChangesGuard],
         title: 'Ticket · OpsHub',
         loadComponent: () => import('./features/tickets/ticket-detail').then((m) => m.TicketDetail),
       },
       {
         path: 'tickets/:id/edit',
+        canDeactivate: [unsavedChangesGuard],
         title: 'Edit ticket · OpsHub',
         loadComponent: () => import('./features/tickets/ticket-form').then((m) => m.TicketForm),
+      },
+      {
+        path: 'account',
+        title: 'Your account · OpsHub',
+        loadComponent: () => import('./features/account/account').then((m) => m.Account),
       },
       {
         path: 'admin/users',

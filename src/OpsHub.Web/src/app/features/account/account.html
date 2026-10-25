@@ -1,0 +1,93 @@
+<div class="page account-page">
+  <header>
+    <h1>Your account</h1>
+  </header>
+
+  @if (session.user(); as user) {
+    <section class="panel profile" aria-labelledby="profile-title">
+      <h2 id="profile-title" class="section-title">Profile</h2>
+      <dl class="props">
+        <dt>Name</dt>
+        <dd>{{ user.displayName }}</dd>
+        <dt>Email</dt>
+        <dd>{{ user.email }}</dd>
+        <dt>Role</dt>
+        <dd>{{ roleLabel() }}</dd>
+      </dl>
+      <p class="field-hint">To change your name or role, ask an administrator.</p>
+    </section>
+  }
+
+  <section class="panel" aria-labelledby="password-title">
+    <h2 id="password-title" class="section-title">Change password</h2>
+
+    @if (error(); as err) {
+      <div class="banner banner-error" role="alert">
+        <app-icon name="alert" />
+        <div class="banner-body">
+          <p class="banner-title">Your password wasn’t changed</p>
+          <p>{{ err.message }}</p>
+        </div>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="field">
+        <label class="field-label" for="current-password">Current password</label>
+        <input
+          id="current-password"
+          class="input"
+          type="password"
+          formControlName="currentPassword"
+          autocomplete="current-password"
+          [attr.aria-invalid]="isInvalid(form.controls.currentPassword)"
+          aria-describedby="current-password-error"
+        />
+        <app-field-error [control]="form.controls.currentPassword" errorId="current-password-error" label="Current password" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="new-password">New password</label>
+        <input
+          id="new-password"
+          class="input"
+          type="password"
+          formControlName="newPassword"
+          autocomplete="new-password"
+          [attr.aria-invalid]="isInvalid(form.controls.newPassword)"
+          aria-describedby="new-password-hint new-password-error"
+        />
+        <p class="field-hint" id="new-password-hint">At least 12 characters. A short phrase is easier to remember than symbols.</p>
+        <app-field-error [control]="form.controls.newPassword" errorId="new-password-error" label="New password" />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="confirm-password">Repeat new password</label>
+        <input
+          id="confirm-password"
+          class="input"
+          type="password"
+          formControlName="confirmPassword"
+          autocomplete="new-password"
+          [attr.aria-invalid]="isInvalid(form.controls.confirmPassword) || showMismatch()"
+          aria-describedby="confirm-password-error"
+        />
+        <app-field-error [control]="form.controls.confirmPassword" errorId="confirm-password-error" label="Repeat new password" />
+        @if (showMismatch()) {
+          <p class="field-error" id="confirm-password-error"><app-icon name="alert" [size]="14" />The two new passwords don’t match.</p>
+        }
+      </div>
+
+      <p class="field-hint">Changing your password signs you out on every other device. You stay signed in here.</p>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          @if (saving()) {
+            <span class="spinner" aria-hidden="true"></span>
+          }
+          Change password
+        </button>
+      </div>
+    </form>
+  </section>
+</div>

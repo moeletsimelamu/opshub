@@ -16,10 +16,18 @@ export class ApiError {
     readonly traceId: string | null,
   ) {}
 
+  /**
+   * The request never reached a working API: no network (status 0), or a proxy/gateway
+   * in front of the API answering on its behalf (502/503/504), e.g. the API is stopped.
+   */
+  get isUnreachable(): boolean {
+    return this.status === 0 || this.status === 502 || this.status === 503 || this.status === 504;
+  }
+
   /** A sentence that is safe and useful to show to the user. */
   get message(): string {
-    if (this.status === 0) {
-      return 'OpsHub can’t reach the server. Check that the API is running, then try again.';
+    if (this.isUnreachable) {
+      return 'OpsHub can’t reach the server right now. Check your connection (or that the API is running) and try again.';
     }
     return this.detail ?? this.title;
   }
@@ -69,6 +77,9 @@ function isFieldErrors(value: unknown): value is Record<string, string[]> {
 function statusTitle(status: number): string {
   switch (status) {
     case 0:
+    case 502:
+    case 503:
+    case 504:
       return 'Server unreachable';
     case 401:
       return 'Please sign in';

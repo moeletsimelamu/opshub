@@ -80,7 +80,8 @@
     }
 
     @if (actions().length > 0) {
-      <div class="actions" role="group" aria-label="Change status" tabindex="-1">
+      <div class="actions" role="group" aria-labelledby="next-step-label" tabindex="-1">
+        <p class="actions-label" id="next-step-label">{{ session.isStaff() ? 'Next step' : 'Your next step' }}</p>
         @for (action of actions(); track action.to) {
           <button
             type="button"
@@ -185,6 +186,14 @@
               ></textarea>
               <app-field-error [control]="commentForm.controls.body" errorId="comment-error" label="Comment" />
               <div class="composer-actions">
+                @if (canSendAndResolve()) {
+                  <button type="button" class="btn btn-secondary" [disabled]="busy() !== null" (click)="sendAndResolve()">
+                    @if (busy() === 'comment-resolve') {
+                      <span class="spinner" aria-hidden="true"></span>
+                    }
+                    Send and resolve
+                  </button>
+                }
                 <button type="submit" class="btn btn-primary" [disabled]="busy() !== null">
                   @if (busy() === 'comment') {
                     <span class="spinner" aria-hidden="true"></span>

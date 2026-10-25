@@ -9,6 +9,7 @@ import { TICKET_PRIORITIES, TicketDetails, TicketPriority } from '../../core/api
 import { TicketsApi } from '../../core/api/tickets-api';
 import { SessionService } from '../../core/auth/session.service';
 import { ToastService } from '../../core/toast.service';
+import { HasUnsavedChanges, warnBeforeUnload } from '../../core/unsaved-changes';
 import { FieldError, focusFirstInvalid, isInvalid } from '../../shared/ui/field-error';
 import { Icon } from '../../shared/ui/icon';
 
@@ -23,11 +24,12 @@ const PRIORITY_HINTS: Record<TicketPriority, string> = {
 @Component({
   selector: 'app-ticket-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:beforeunload)': 'onBeforeUnload($event)' },
   imports: [ReactiveFormsModule, RouterLink, FieldError, Icon],
   templateUrl: './ticket-form.html',
   styleUrl: './ticket-form.css',
 })
-export class TicketForm implements OnInit {
+export class TicketForm implements OnInit, HasUnsavedChanges {
   private readonly api = inject(TicketsApi);
   private readonly router = inject(Router);
   private readonly toasts = inject(ToastService);
@@ -56,6 +58,17 @@ export class TicketForm implements OnInit {
   protected readonly descriptionLength = signal(0);
   protected readonly selectedPriority = signal<TicketPriority>('Medium');
   protected readonly isInvalid = isInvalid;
+
+  /** Set just before navigating away after a successful save, so the guard doesn't ask. */
+  private saved = false;
+
+  hasUnsavedChanges(): boolean {
+    return this.form.dirty && !this.saved;
+  }
+
+  protected onBeforeUnload(event: BeforeUnloadEvent): void {
+    warnBeforeUnload(event, this.hasUnsavedChanges());
+  }
 
   protected readonly priorityHint = computed(() => PRIORITY_HINTS[this.selectedPriority()]);
   protected readonly cancelLink = computed(() => (this.isEdit() ? ['/tickets', this.id()] : ['/tickets']));
@@ -107,6 +120,7 @@ export class TicketForm implements OnInit {
         : await firstValueFrom(this.api.create(input));
 
       this.toasts.success(existing ? 'Changes saved' : `Ticket ${saved.reference} submitted`);
+      this.saved = true;
       await this.router.navigate(['/tickets', saved.id]);
     } catch (error) {
       const apiError = ApiError.from(error);

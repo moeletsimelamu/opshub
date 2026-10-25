@@ -12,6 +12,7 @@ import { TicketsApi } from '../../core/api/tickets-api';
 import { SessionService } from '../../core/auth/session.service';
 import { keepPreviousData, toLoadState } from '../../core/load-state';
 import { ToastService } from '../../core/toast.service';
+import { HasUnsavedChanges, warnBeforeUnload } from '../../core/unsaved-changes';
 import { FieldError, isInvalid } from '../../shared/ui/field-error';
 import { Icon } from '../../shared/ui/icon';
 import { PriorityMeter } from '../../shared/ui/priority-meter';
@@ -34,11 +35,12 @@ type TimelineItem =
 @Component({
   selector: 'app-ticket-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:beforeunload)': 'onBeforeUnload($event)' },
   imports: [RouterLink, ReactiveFormsModule, StatusTag, PriorityMeter, RelativeTime, Icon, FieldError],
   templateUrl: './ticket-detail.html',
   styleUrl: './ticket-detail.css',
 })
-export class TicketDetail {
+export class TicketDetail implements HasUnsavedChanges {
   private readonly api = inject(TicketsApi);
   private readonly dialog = inject(Dialog);
   private readonly toasts = inject(ToastService);
@@ -119,6 +121,24 @@ export class TicketDetail {
     { initialValue: false },
   );
   protected readonly isInvalid = isInvalid;
+
+  /** A half-written reply counts as unsaved work. */
+  hasUnsavedChanges(): boolean {
+    return this.commentForm.controls.body.value.trim() !== '';
+  }
+
+  protected onBeforeUnload(event: BeforeUnloadEvent): void {
+    warnBeforeUnload(event, this.hasUnsavedChanges());
+  }
+
+  /**
+   * Agents usually explain the fix and resolve in one go ("Send and resolve"). Offered
+   * only when the workflow allows Resolved and the comment is a public reply.
+   */
+  protected readonly canSendAndResolve = computed(() => {
+    const t = this.ticket();
+    return this.session.isStaff() && !!t && t.permissions.allowedStatuses.includes('Resolved') && !this.isInternalComment();
+  });
 
   constructor() {
     // Staff who can assign need the agent list; fetch it once the ticket says so.
@@ -218,6 +238,43 @@ export class TicketDetail {
     );
     if (ok) {
       this.commentForm.reset({ body: '', visibility });
+    }
+  }
+
+  /**
+   * Posts the reply, then resolves. The reply changes the ticket's version, so the fresh
+   * version is fetched before the status change (otherwise it would be a 409 conflict).
+   * If the reply succeeds but resolving fails, the message says exactly that.
+   */
+  protected async sendAndResolve(): Promise<void> {
+    const ticket = this.ticket();
+    this.commentForm.markAllAsTouched();
+    if (!ticket || this.commentForm.invalid) return;
+
+    this.busy.set('comment-resolve');
+    this.actionError.set(null);
+    try {
+      await firstValueFrom(this.api.addComment(ticket.id, this.commentForm.controls.body.value.trim(), false));
+    } catch (error) {
+      this.actionError.set(ApiError.from(error));
+      this.busy.set(null);
+      return;
+    }
+
+    this.commentForm.reset({ body: '', visibility: 'public' });
+    try {
+      const fresh = await firstValueFrom(this.api.get(ticket.id));
+      await firstValueFrom(this.api.changeStatus(ticket.id, 'Resolved', null, fresh.version));
+      this.toasts.success(`Reply sent and ${ticket.reference} resolved`);
+    } catch (error) {
+      const cause = ApiError.from(error);
+      this.actionError.set(
+        new ApiError(cause.status, 'Reply sent, but the ticket wasn’t resolved', cause.message, cause.code, {}, cause.traceId),
+      );
+    } finally {
+      this.busy.set(null);
+      this.focusAfterReload.set(true);
+      this.reload$.next();
     }
   }
 
