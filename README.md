@@ -42,6 +42,40 @@ figures on workload and resolution time.
 Every user can change their password. Expired sessions, an unreachable server, editing
 conflicts and unsaved changes are all handled in the interface.
 
+## Screenshots
+
+All data shown is fictional demo data.
+
+![Staff dashboard: open tickets, tickets needing triage, status and priority breakdowns, agent workload and recently updated tickets](docs/screenshots/dashboard.png)
+*The staff dashboard, built from live data.*
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/queue.png" alt="Support queue showing the All active view with search, priority and category filters, and sortable columns"></td>
+    <td width="50%"><img src="docs/screenshots/ticket-staff.png" alt="Ticket detail for staff with the Next step bar, the activity history including an internal note, and the assignment panel"></td>
+  </tr>
+  <tr>
+    <td><em>The queue: views, search, filters and sorting.</em></td>
+    <td><em>A ticket as staff see it, with the next step and an internal note.</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/requester-tickets.png" alt="A requester's list of their own tickets, with prompts for tickets needing a reply or confirmation"></td>
+    <td><img src="docs/screenshots/requester-resolved.png" alt="A resolved ticket as the requester sees it, with buttons to reopen it or confirm the fix and close it"></td>
+  </tr>
+  <tr>
+    <td><em>A requester sees only their own tickets.</em></td>
+    <td><em>The requester confirms the fix or reopens the ticket.</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/admin-users.png" alt="User administration with the Add a user dialog open"></td>
+    <td align="center"><img src="docs/screenshots/queue-mobile.png" alt="The queue on a phone: rows become cards and sorting moves into a select" width="260"></td>
+  </tr>
+  <tr>
+    <td><em>User administration.</em></td>
+    <td><em>The queue on a phone.</em></td>
+  </tr>
+</table>
+
 ## Architecture
 
 ```mermaid
