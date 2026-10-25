@@ -55,6 +55,20 @@ All use the password you set in step 3.
 
 To reset the demo data, stop the API, delete `src/OpsHub.Api/opshub.db*` and run it again.
 
+### Try the sign-in flow
+
+With the API running, this script signs in the way the browser will (XSRF token → login →
+admin-only call → logout) and prints each result. It prompts for the password without
+showing it.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-SignIn.ps1 -Email lerato@marula.example
+```
+
+An administrator sees a list of users; a requester (e.g. `thandi@marula.example`) gets
+**403 Forbidden** at step 3. `-ExecutionPolicy Bypass` applies only to that one command.
+Forgot the demo password? `dotnet user-secrets list --project src/OpsHub.Api`.
+
 ## Security at a glance
 
 - Passwords hashed by ASP.NET Core Identity (PBKDF2); never stored or logged in plain text.
