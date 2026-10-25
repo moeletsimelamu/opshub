@@ -115,12 +115,14 @@ Honest gaps. None of these were tested, so no claim is made about them:
 - **No penetration test.** The security review is a code and configuration review by the
   developer, not an independent test.
 
-## 5. Left for Phase 10 (deployment)
+## 5. Follow-up in Phase 10 (deployment)
 
-- **Login rate limiting behind a reverse proxy:** the limiter uses the connection's IP address.
-  Behind a proxy every request appears to come from the proxy, so forwarded headers must be
-  configured for the real host.
-- **A Content Security Policy for the Angular app:** the API's CSP covers JSON responses. When
-  the API also serves the built Angular files, those pages need their own policy (scripts and
-  styles from the same origin only).
-- **HSTS `includeSubDomains` / preload:** only once the real domain is known.
+| Item | Outcome |
+|---|---|
+| Login rate limiting behind a reverse proxy | **Done.** Forwarded client addresses are trusted only from configured proxies (`ReverseProxyTests`) |
+| A Content Security Policy for the Angular app | **Done.** `script-src 'self'` with no inline scripts; checked in the browser with no violations ([DEPLOYMENT.md § 11](DEPLOYMENT.md#11-how-this-was-verified)) |
+| HSTS `includeSubDomains` / preload | **Open.** Only once a real domain is chosen |
+
+Phase 10 also found and fixed a deployment bug: behind a proxy that wasn't configured, the
+first sign-in step failed with a 500. The API now refuses plain HTTP with a clear 400 and a
+log message (`HttpsOnlyApiTests`).

@@ -1,3 +1,6 @@
 # Store text files with LF in the repository; Git converts to the platform's
 # line endings on checkout. Keeps diffs clean between Windows and Linux CI.
 * text=auto
+
+# Shell scripts run under Bash (CI, servers, Git Bash), which fails on CRLF line endings.
+*.sh text eol=lf

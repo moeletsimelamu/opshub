@@ -12,9 +12,6 @@ internal static class DemoData
 {
     public const string EmailDomain = "marula.example";
 
-    public static readonly string[] Categories =
-        ["Hardware", "Software", "Access & Accounts", "Network", "Facilities"];
-
     public static readonly DemoUser[] Users =
     [
         new("lerato", "Lerato Dlamini", AppRoles.Administrator),

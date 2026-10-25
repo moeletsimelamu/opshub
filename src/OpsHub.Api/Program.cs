@@ -7,6 +7,7 @@ using OpsHub.Api.Data.Seeding;
 using OpsHub.Api.Features.Dashboard;
 using OpsHub.Api.Features.Tickets;
 using OpsHub.Api.Features.Users;
+using OpsHub.Api.Hosting;
 using OpsHub.Api.Security;
 using Scalar.AspNetCore;
 
@@ -35,6 +36,7 @@ builder.WebHost.ConfigureKestrel(kestrel =>
 // ---------- Configuration ----------
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
 builder.Services.Configure<SeedOptions>(builder.Configuration.GetSection(SeedOptions.SectionName));
+builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection(BootstrapOptions.SectionName));
 
 // Injected instead of DateTime.UtcNow so tests can control the clock.
 builder.Services.AddSingleton(TimeProvider.System);
@@ -52,8 +54,14 @@ builder.Services.AddDbContext<OpsHubDbContext>((services, options) =>
 // ---------- Identity, session cookie, authorisation, CSRF, rate limiting ----------
 builder.Services.AddOpsHubAuth(builder.Configuration);
 
+// ---------- Hosting: reverse proxy, key storage ----------
+builder.Services.AddOpsHubReverseProxy(builder.Configuration);
+builder.Services.AddOpsHubKeyStorage(builder.Configuration);
+
 // ---------- Application services ----------
+builder.Services.AddScoped<ReferenceDataSeeder>();
 builder.Services.AddScoped<DevSeeder>();
+builder.Services.AddScoped<AdminBootstrapper>();
 builder.Services.AddScoped<UserAdminService>();
 builder.Services.AddScoped<TicketService>();
 builder.Services.AddScoped<TicketActivityService>();
@@ -86,9 +94,11 @@ builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(180));
 
 var app = builder.Build();
 
+app.WarnIfKeysAreNotPersisted();
 await app.InitialiseDatabaseAsync();
 
 // ---------- HTTP pipeline (order matters) ----------
+app.UseOpsHubReverseProxy();   // first: everything after it sees the client's real IP address and scheme
 app.UseSecurityHeaders();
 app.UseExceptionHandler(new ExceptionHandlerOptions
 {
@@ -114,6 +124,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseHttpsOnlyApi();     // a clear 400 instead of a confusing 500 when HTTPS was lost on the way
+
+app.UseOpsHubFrontend();   // the Angular app's files (production only), public like any website's scripts
 
 app.UseAuthentication();   // Who is this? (reads the session cookie)
 app.UseAuthorization();    // Are they allowed? (policies, [Authorize], fallback policy)
@@ -121,5 +134,6 @@ app.UseRateLimiter();
 
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
+app.MapOpsHubFrontend();   // any other page address → index.html (the Angular router takes over)
 
 await app.RunAsync();

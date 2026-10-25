@@ -77,3 +77,64 @@ jobs:
       # advisories (devDependencies) are reported locally with `npm audit`.
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  container:
+    name: Container · build, run behind HTTPS, smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend, frontend]   # only package code that passed its tests
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Build the image
+        run: docker build --tag opshub:ci .
+
+      # Like a real first deployment: an empty /data volume, Production settings, HTTPS ended by
+      # a reverse proxy (Caddy, with its own local certificate authority), and the first
+      # administrator created from settings. The password is generated and never printed.
+      - name: Start OpsHub behind an HTTPS reverse proxy
+        run: |
+          password="ci-$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          echo "SMOKE_PASSWORD=$password" >> "$GITHUB_ENV"
+          docker network create --subnet 172.30.0.0/24 opshub-net
+          docker run --detach --name opshub --network opshub-net --publish 8080:8080 \
+            --env ReverseProxy__Enabled=true \
+            --env ReverseProxy__KnownNetworks__0=172.30.0.0/24 \
+            --env Bootstrap__AdminEmail=admin@ci.example \
+            --env Bootstrap__AdminPassword="$password" \
+            opshub:ci
+          docker run --detach --name proxy --network opshub-net --publish 8443:8443 \
+            caddy:2 caddy reverse-proxy --from https://localhost:8443 --to opshub:8080
+
+      - name: Trust the proxy's certificate authority (TLS stays verified)
+        run: |
+          for attempt in $(seq 1 30); do
+            docker exec proxy cat /data/caddy/pki/authorities/local/root.crt > "$RUNNER_TEMP/proxy-ca.crt" 2>/dev/null && break
+            sleep 1
+          done
+          test -s "$RUNNER_TEMP/proxy-ca.crt"
+          echo "SMOKE_CA_CERT=$RUNNER_TEMP/proxy-ca.crt" >> "$GITHUB_ENV"
+
+      - name: Smoke test through the proxy
+        run: bash scripts/smoke-test.sh https://localhost:8443 admin@ci.example
+
+      # Straight to the container, bypassing the proxy: health probes work, the API refuses.
+      - name: Plain HTTP reaches /health, but the API refuses it
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health)" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/auth/me)" = 400
+
+      # A restart must keep the database, the session keys and the administrator.
+      - name: Restart the container and test again
+        run: |
+          docker restart opshub
+          bash scripts/smoke-test.sh https://localhost:8443 admin@ci.example
+
+      - name: Show the container logs
+        if: always()
+        run: |
+          docker logs opshub || true
+          docker logs proxy || true

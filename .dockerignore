@@ -1,0 +1,17 @@
+# Keep the build context small and free of local state (databases, secrets, build output).
+.git
+.github
+.vs
+.vscode
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+**/*.db
+**/*.db-shm
+**/*.db-wal
+tests
+docs
+scripts
+*.md

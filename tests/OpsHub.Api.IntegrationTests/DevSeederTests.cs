@@ -18,7 +18,7 @@ public class DevSeederTests(SeededOpsHubApiFactory factory) : IClassFixture<Seed
         await factory.WithDbAsync(async db =>
         {
             Assert.Equal(DemoData.Users.Length, await db.Users.CountAsync(Ct));
-            Assert.Equal(DemoData.Categories.Length, await db.Categories.CountAsync(Ct));
+            Assert.Equal(ReferenceDataSeeder.DefaultCategories.Length, await db.Categories.CountAsync(Ct));
             Assert.Equal(DemoData.Tickets.Length, await db.Tickets.CountAsync(Ct));
         });
     }

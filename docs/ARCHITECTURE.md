@@ -35,8 +35,10 @@ flowchart LR
   S --> E --> DB
 ```
 
-One deployable application (a *monolith*). Microservices, message brokers and containers
-would add operational cost without solving any problem this application has.
+One deployable application (a *monolith*). In production it ships as a single container in
+which the API also serves the built Angular app, behind an HTTPS reverse proxy
+([DEPLOYMENT.md](DEPLOYMENT.md)). Microservices and message brokers would add operational
+cost without solving any problem this application has.
 
 ## 3. Technology choices
 
@@ -126,13 +128,17 @@ match the planned ticket-list filters and default sort.
 | Key | Default | Development | Purpose |
 |---|---|---|---|
 | `ConnectionStrings:OpsHub` | `Data Source=opshub.db` | same | SQLite file (relative to the API project). |
-| `Database:ApplyMigrationsOnStartup` | `false` | `true` | Development convenience; production applies migrations deliberately. |
+| `Database:ApplyMigrationsOnStartup` | `false` | `true` | Update the schema at startup. The container turns it on (one instance only). |
 | `Seed:Enabled` | `false` | `true` | Seeds fictional data into an empty database. Refused in Production. |
 | `Seed:DemoPassword` | *(unset)* | set via user-secrets | Password for every demo account. Never committed. |
 | `Auth:LoginAttemptsPerMinute` | `10` | same | Login requests allowed per client IP per minute. |
+| `Bootstrap:AdminEmail`, `AdminPassword`, `AdminDisplayName` | *(unset)* | unset | First administrator of a new installation. |
+| `ReverseProxy:Enabled`, `KnownProxies`, `KnownNetworks` | off | off | Which proxies may report the client's address and scheme. |
+| `DataProtection:KeysDirectory` | *(user profile)* | same | Where session-signing keys are kept; `/data/keys` in the container. |
 
 Any key can be overridden by an environment variable, using `__` for `:`
-(e.g. `ConnectionStrings__OpsHub`).
+(e.g. `ConnectionStrings__OpsHub`). Production values and secrets:
+[DEPLOYMENT.md § 3](DEPLOYMENT.md#3-settings).
 
 ## 7. Security model
 
@@ -185,13 +191,21 @@ sequenceDiagram
 ### Known limitations (demo scope)
 
 No email verification, password reset by email or multi-factor authentication. Administrators
-set initial passwords. The IP rate limit uses the direct connection address; behind a reverse
-proxy, forwarded headers must be configured first (Phase 10).
+set initial passwords. Session keys are stored unencrypted on the data volume
+([DEPLOYMENT.md § 9](DEPLOYMENT.md#9-checklist-before-going-live)).
 
-### Hardening (Phase 9)
+### Hardening (Phases 9 and 10)
 
-Response headers, HSTS, the request size limit and the other review findings are recorded,
-with how each was verified, in [REVIEW.md](REVIEW.md).
+| Concern | Decision | Why |
+|---|---|---|
+| Response headers | Strict CSP for JSON (`default-src 'none'`); for the Angular page, scripts only from OpsHub itself (`script-src 'self'`, no inline scripts, no `eval`); `nosniff`, no framing, no referrer; HSTS outside Development | An injected `<script>` can't run, and the app can't be framed. Angular's critical-CSS inlining is switched off because it relies on an inline event handler. Inline *styles* are allowed: Angular adds component styles at runtime, and CSS can't run code |
+| Behind a reverse proxy | `X-Forwarded-For`/`-Proto` are believed only from proxies listed in `ReverseProxy` settings | Otherwise any client could fake its IP address and dodge the login rate limit |
+| HTTP vs HTTPS | API requests over plain HTTP get `400 HTTPS is required`; `/health` and the page still answer | The cookies are `Secure`-only. Without this, a misconfigured proxy shows up as a baffling 500 at sign-in |
+| Session keys | Persisted to a configurable folder (`/data/keys` in the container) under a fixed application name | Otherwise every restart or redeploy signs everyone out |
+| First run | Roles and starter categories are created in every environment; the first administrator comes from `Bootstrap` settings, only while no active administrator exists | A new installation is usable without demo data, and leftover settings can't create a second admin or reset a password |
+
+The Phase 9 findings and how each was verified: [REVIEW.md](REVIEW.md). Deployment settings:
+[DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 8. API conventions
 
@@ -303,6 +317,8 @@ chart) made two tests fail as intended.
 | Data leaking to the wrong requester (IDOR) | One visibility query used everywhere, and integration tests that try to cross the boundary. |
 | Cookie auth gotchas (redirects, CSRF) | Handled in Phase 3: 401/403 instead of redirects, XSRF token filter, tests for both. |
 | Scope creep | Fixed feature list; extras go to *Future improvements*. |
+| SQLite in production allows one instance only | Accepted for an internal tool of this size. EF Core keeps a switch to PostgreSQL or SQL Server small; [DEPLOYMENT.md § 10](DEPLOYMENT.md#10-limits) lists what scaling out needs. |
+| Proxy misconfiguration breaks sign-in | The API refuses plain HTTP with a clear error and log message, and CI tests the container behind a real HTTPS proxy. |
 
 ## 12. Frontend (Angular)
 
@@ -341,7 +357,7 @@ src/OpsHub.Web/src/
 | **Session interceptor** | Any 401 (expired, deactivated, signed out elsewhere) clears the user and returns to the login page with a `returnUrl`. |
 | **Permissions come from the API** (`ticket.permissions`) | The UI shows only actions that will work and explains the ones that won't. It doesn't duplicate business rules; the API remains the authority. |
 | **Server validation errors mapped onto form fields** (`ApiError.applyTo`) | A duplicate email or a rejected field appears next to the input, not as a generic error. |
-| **Dev proxy** (`proxy.conf.mjs`) instead of CORS | One origin in the browser, so the `SameSite=Strict` session cookie works unchanged. In production the API will serve the built app (Phase 10). |
+| **Dev proxy** (`proxy.conf.mjs`) instead of CORS | One origin in the browser, so the `SameSite=Strict` session cookie works unchanged. In production the API serves the built app itself (`Hosting/Frontend.cs`), which keeps the same single origin. |
 
 ### Integration hardening (Phase 6)
 

@@ -140,7 +140,6 @@ public class EmptyDashboardTests(OpsHubApiFactory factory) : IClassFixture<OpsHu
     [Fact]
     public async Task EmptyDatabase_ReturnsZeros_AndNoAverage()
     {
-        await factory.EnsureRolesAsync();
         var agent = await factory.CreateUserAsync(AppRoles.SupportAgent);
         using var client = await factory.SignedInClientAsync(agent.Email);
 

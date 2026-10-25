@@ -13,7 +13,6 @@ namespace OpsHub.Api.Data.Seeding;
 internal sealed partial class DevSeeder(
     OpsHubDbContext db,
     UserManager<AppUser> userManager,
-    RoleManager<IdentityRole<Guid>> roleManager,
     TimeProvider timeProvider,
     IOptions<SeedOptions> options,
     ILogger<DevSeeder> logger)
@@ -39,9 +38,9 @@ internal sealed partial class DevSeeder(
         // One transaction: either all demo data is created or none of it is.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        await SeedRolesAsync();
+        // Roles and categories already exist: ReferenceDataSeeder runs first.
         var users = await SeedUsersAsync(password, now);
-        var categories = SeedCategories();
+        var categories = await db.Categories.ToDictionaryAsync(c => c.Name, cancellationToken);
         var tickets = DemoData.Tickets.Select(t => BuildTicket(t, users, categories, now)).ToList();
         db.Tickets.AddRange(tickets);
 
@@ -62,14 +61,6 @@ internal sealed partial class DevSeeder(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded {UserCount} users, {CategoryCount} categories and {TicketCount} tickets")]
     private static partial void LogSeeded(ILogger logger, int userCount, int categoryCount, int ticketCount);
-
-    private async Task SeedRolesAsync()
-    {
-        foreach (var role in AppRoles.All)
-        {
-            EnsureSucceeded(await roleManager.CreateAsync(new IdentityRole<Guid>(role)), $"create role {role}");
-        }
-    }
 
     private async Task<Dictionary<string, AppUser>> SeedUsersAsync(string password, DateTime now)
     {
@@ -99,13 +90,6 @@ internal sealed partial class DevSeeder(
         return users;
     }
 
-    private Dictionary<string, Category> SeedCategories()
-    {
-        var categories = DemoData.Categories.ToDictionary(name => name, name => new Category { Name = name });
-        db.Categories.AddRange(categories.Values);
-        return categories;
-    }
-
     /// <summary>
     /// Builds a ticket together with a status history that follows a realistic path
     /// (Open → In Progress → …), so the timeline and the dashboard agree with each other.
@@ -124,7 +108,9 @@ internal sealed partial class DevSeeder(
         {
             Title = demo.Title,
             Description = demo.Description,
-            Category = categories[demo.Category],
+            Category = categories.TryGetValue(demo.Category, out var category)
+                ? category
+                : throw new InvalidOperationException($"Demo ticket '{demo.Title}' uses category '{demo.Category}', which doesn't exist."),
             Priority = demo.Priority,
             Status = demo.Status,
             Requester = requester,

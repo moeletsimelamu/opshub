@@ -117,20 +117,6 @@ public class OpsHubApiFactory : WebApplicationFactory<Program>
         return new TestUser(user.Id, email);
     }
 
-    /// <summary>Creates the three roles in an unseeded database (seeding normally does this).</summary>
-    public async Task EnsureRolesAsync()
-    {
-        await using var scope = Services.CreateAsyncScope();
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-        foreach (var role in AppRoles.All)
-        {
-            if (!await roleManager.RoleExistsAsync(role))
-            {
-                AssertSucceeded(await roleManager.CreateAsync(new IdentityRole<Guid>(role)));
-            }
-        }
-    }
-
     private static void AssertSucceeded(IdentityResult result) =>
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
 
