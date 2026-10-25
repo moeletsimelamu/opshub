@@ -3,10 +3,12 @@
 An internal service desk for a fictional logistics company. Employees log support tickets;
 support agents triage, assign and resolve them.
 
-> **Status: work in progress (Phase 5 of 10).** The API and the Angular interface work end to
+> **Status: work in progress (Phase 6 of 10).** The API and the Angular interface work end to
 > end: sign-in, a ticket queue with views, filters, search, sorting and paging, ticket detail
-> with the status workflow, assignment, replies and internal notes, ticket create/edit, and
-> user administration. The dashboard (Phase 7) and CI (Phase 8) are not built yet.
+> with the status workflow, assignment, replies, internal notes and *Send and resolve*, ticket
+> create/edit, user administration and change password. Session expiry, API outages, editing
+> conflicts and unsaved work are handled. The dashboard (Phase 7) and CI (Phase 8) are not
+> built yet.
 
 - Architecture and security decisions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Visual design system and screen designs: [docs/DESIGN.md](docs/DESIGN.md)

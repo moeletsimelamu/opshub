@@ -279,12 +279,14 @@ src/OpsHub.Web/src/
    │  ├─ api/              typed API clients (TicketsApi, UsersApi), models, ApiError (ProblemDetails)
    │  ├─ auth/             SessionService (signals), session interceptor, route guards
    │  ├─ load-state.ts     loading / ready / error states for every screen
+   │  ├─ unsaved-changes.ts  guard + beforeunload helper
    │  └─ toast.service.ts
    ├─ layout/              Shell (sidebar / mobile drawer), not-found page
    ├─ shared/ui/           Icon, StatusTag, PriorityMeter, Pagination, EmptyState, FieldError, Toasts, RelativeTime
    └─ features/
       ├─ auth/             Login
       ├─ tickets/          TicketList, TicketDetail, TicketForm, StatusDialog, ticket-actions.ts
+      ├─ account/          Account (profile, change password)
       └─ admin/            UserList, UserDialog
 ```
 
@@ -301,6 +303,17 @@ src/OpsHub.Web/src/
 | **Permissions come from the API** (`ticket.permissions`) | The UI shows only actions that will work and explains the ones that won't. It doesn't duplicate business rules; the API remains the authority. |
 | **Server validation errors mapped onto form fields** (`ApiError.applyTo`) | A duplicate email or a rejected field appears next to the input, not as a generic error. |
 | **Dev proxy** (`proxy.conf.mjs`) instead of CORS | One origin in the browser, so the `SameSite=Strict` session cookie works unchanged. In production the API will serve the built app (Phase 10). |
+
+### Integration hardening (Phase 6)
+
+| Situation | Behaviour |
+|---|---|
+| Session ends mid-use (expired, deactivated, password changed elsewhere) | The interceptor sees the 401, clears the user and opens the login page with "Your session ended", then returns to the same page after sign-in. A fresh XSRF token is fetched before signing in, because the old one belonged to the ended session. |
+| API unreachable | Status 0, 502/503/504, **or any 5xx without the API's ProblemDetails body** counts as "can't reach the server". The API always answers errors with ProblemDetails, so a bare 5xx must come from something in front of it (the dev proxy returns a plain 500 when the API is stopped). |
+| A reload fails | Previous results are kept only while loading, never after an error, so stale rows for another filter can't look current. |
+| Two people edit the same ticket | The second save gets 409; the page explains that nothing was overwritten and links to the latest version. |
+| Leaving with unsaved work | A `canDeactivate` guard asks before discarding a half-written ticket or reply; `beforeunload` covers closing the tab or reloading. |
+| Reply then resolve | *Send and resolve* posts the reply, fetches the new version (the reply changed it), then resolves. If only the reply succeeds, the message says exactly that. |
 
 ### Verification done in Phase 5
 

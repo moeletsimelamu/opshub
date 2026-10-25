@@ -20,13 +20,17 @@ export function toLoadState<T>(request: Observable<T>): Observable<LoadState<T>>
   );
 }
 
-/** Carries the last successful data forward into later loading/error states. */
+/**
+ * Keeps the last successful data on screen while the next request is loading, so the page
+ * doesn't flash empty. Deliberately NOT kept after an error: stale results (possibly for a
+ * different filter) must never look current, so a failed load shows the error instead.
+ */
 export function keepPreviousData<T>() {
   return (source: Observable<LoadState<T>>) =>
     source.pipe(
       scan(
         (previous: LoadState<T>, next: LoadState<T>): LoadState<T> =>
-          next.kind === 'ready' ? next : { ...next, data: next.data ?? previous.data },
+          next.kind === 'loading' ? { ...next, data: next.data ?? previous.data } : next,
         { kind: 'loading', data: null } as LoadState<T>,
       ),
     );

@@ -29,8 +29,9 @@ company. It is a work tool used all day by some people and occasionally by every
    cards; dense rows; the ticket reference, title, status and priority readable without hovering.
 2. **Status is information, not decoration.** Status and priority always appear as **text plus a shape**.
    Colour reinforces meaning but is never the only signal.
-3. **One primary action per view.** Each screen has a single filled (primary) button. Everything else is
-   secondary or a quiet text action.
+3. **One primary action per section.** Each section of a screen has at most one filled (primary) button:
+   the most likely next step. Everything else is secondary or a quiet text action. (Revised in Phase 6:
+   the ticket page has two sections, the workflow bar and the reply box, each with its own primary.)
 4. **Show the rules.** Controls appear only when the API says they will work (`permissions` on each ticket).
    When something can't be done, the interface says why instead of hiding the reason.
 5. **Honest states.** Loading placeholders match the shape of the content; empty states explain what
@@ -171,9 +172,14 @@ thing they must act on.
 
 ### Ticket detail
 Two columns on wide screens:
-- **Main (left):** reference + title, then the action bar (allowed status changes as verbs: *Start work*,
-  *Ask requester*, *Resolve*, *Close*, *Reopen*), then the description, then a **timeline** that merges
-  comments and status changes in time order, then the comment composer.
+- **Main (left):** reference + title, then the **"Next step" bar**: a labelled, tinted section holding the
+  allowed status changes as verbs (*Start work*, *Ask requester*, *Resolve*, *Close*, *Reopen*). Then the
+  description, a **timeline** that merges comments and status changes in time order, and the reply box.
+  Staff also get **Send and resolve** in the reply box.
+
+  *Phase 6 change, from user testing:* the first version was an unlabelled row of buttons. A tester scrolled
+  to the reply box and couldn't find *Resolve*, so the bar was labelled and given its own background, and
+  *Send and resolve* was added where agents finish their work.
 - **Side panel (right, 300px):** properties as a definition list: status, priority, category, requester,
   assignee (with *Assign to me* and an agent picker for staff), created, updated, resolved.
 
@@ -187,6 +193,11 @@ On a 409 conflict the page shows a warning banner: "This ticket was changed by s
 Single column, max 640px: title, category, priority (requester: Low–Critical with a hint; agents edit later),
 description (textarea, with a character count near the limit). Primary: *Submit ticket* / *Save changes*.
 Cancel returns to where the user came from.
+
+### Your account
+Profile (name, email, role; read-only, changed by an administrator) and *Change password*: current
+password, new password, repeat. A mismatch is reported on the repeat field. The page explains that
+other devices are signed out.
 
 ### Users (admin)
 Search + role + status filters; table: name/email · role · status · created. *Add user* opens a dialog.

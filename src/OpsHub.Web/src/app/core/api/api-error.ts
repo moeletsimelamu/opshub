@@ -14,14 +14,24 @@ export class ApiError {
     readonly code: string | null,
     readonly fieldErrors: Record<string, string[]>,
     readonly traceId: string | null,
+    /** True when the body was the API's own ProblemDetails (it always sends one for errors). */
+    readonly fromApi = true,
   ) {}
 
   /**
-   * The request never reached a working API: no network (status 0), or a proxy/gateway
-   * in front of the API answering on its behalf (502/503/504), e.g. the API is stopped.
+   * The request never reached a working API: no network (status 0), a gateway status
+   * (502/503/504), or any 5xx without the API's ProblemDetails body, which means something
+   * in front of the API answered instead (e.g. the dev proxy returns a bare 500 when the
+   * API is stopped).
    */
   get isUnreachable(): boolean {
-    return this.status === 0 || this.status === 502 || this.status === 503 || this.status === 504;
+    return (
+      this.status === 0 ||
+      this.status === 502 ||
+      this.status === 503 ||
+      this.status === 504 ||
+      (this.status >= 500 && !this.fromApi)
+    );
   }
 
   /** A sentence that is safe and useful to show to the user. */
@@ -46,6 +56,7 @@ export class ApiError {
         typeof body['code'] === 'string' ? body['code'] : null,
         isFieldErrors(body['errors']) ? body['errors'] : {},
         typeof body['traceId'] === 'string' ? body['traceId'] : null,
+        typeof body['title'] === 'string' && typeof body['status'] === 'number',
       );
     }
 
@@ -75,11 +86,14 @@ function isFieldErrors(value: unknown): value is Record<string, string[]> {
 }
 
 function statusTitle(status: number): string {
+  // Called only when the body wasn't the API's ProblemDetails, so a 5xx here means the
+  // response came from something in front of the API.
+  if (status >= 500) {
+    return 'Server unreachable';
+  }
+
   switch (status) {
     case 0:
-    case 502:
-    case 503:
-    case 504:
       return 'Server unreachable';
     case 401:
       return 'Please sign in';
@@ -90,6 +104,6 @@ function statusTitle(status: number): string {
     case 409:
       return 'Conflict';
     default:
-      return status >= 500 ? 'Server error' : 'Request failed';
+      return 'Request failed';
   }
 }

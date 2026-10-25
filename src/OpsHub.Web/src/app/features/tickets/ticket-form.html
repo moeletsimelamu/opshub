@@ -34,8 +34,16 @@
       <div class="banner" [class.banner-warning]="err.code === 'concurrency_conflict'" [class.banner-error]="err.code !== 'concurrency_conflict'" role="alert">
         <app-icon name="alert" />
         <div class="banner-body">
-          <p class="banner-title">{{ err.code === 'concurrency_conflict' ? 'Someone else changed this ticket' : 'Your changes weren’t saved' }}</p>
-          <p>{{ err.message }}</p>
+          @if (err.code === 'concurrency_conflict') {
+            <p class="banner-title">Someone else changed this ticket while you were editing</p>
+            <p>
+              Your changes weren’t saved, so nothing was overwritten. Copy anything you want to keep,
+              <a [routerLink]="cancelLink()">open the latest version</a>, then edit again.
+            </p>
+          } @else {
+            <p class="banner-title">Your changes weren’t saved</p>
+            <p>{{ err.message }}</p>
+          }
         </div>
       </div>
     }
