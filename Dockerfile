@@ -14,7 +14,9 @@ RUN npx ng build
 # ---------- 2. Build and publish the API ----------
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api
 WORKDIR /src
-COPY Directory.Build.props ./
+# .editorconfig carries the analyzer settings (e.g. generated migrations are exempt). Without
+# it, warnings that are switched off on purpose would fail the build: warnings are errors.
+COPY Directory.Build.props .editorconfig ./
 COPY src/OpsHub.Domain/OpsHub.Domain.csproj src/OpsHub.Domain/
 COPY src/OpsHub.Api/OpsHub.Api.csproj src/OpsHub.Api/
 RUN dotnet restore src/OpsHub.Api/OpsHub.Api.csproj
