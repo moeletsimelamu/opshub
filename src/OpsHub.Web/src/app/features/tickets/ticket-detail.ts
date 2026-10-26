@@ -20,17 +20,13 @@ import { RelativeTime } from '../../shared/ui/relative-time';
 import { StatusTag } from '../../shared/ui/status-tag';
 import { StatusDialog } from './status-dialog';
 import { StatusAction, statusActions } from './ticket-actions';
+import { TimelineItem, buildTimeline } from './timeline';
 
 interface TicketView {
   ticket: TicketDetails;
   comments: TicketComment[];
   history: StatusHistoryEntry[];
 }
-
-/** One entry in the merged timeline of comments and status changes. */
-type TimelineItem =
-  | { kind: 'comment'; key: string; at: string; comment: TicketComment }
-  | { kind: 'status'; key: string; at: string; entry: StatusHistoryEntry };
 
 @Component({
   selector: 'app-ticket-detail',
@@ -73,13 +69,7 @@ export class TicketDetail implements HasUnsavedChanges {
 
   protected readonly timeline = computed<TimelineItem[]>(() => {
     const view = this.state().data;
-    if (!view) return [];
-    const items: TimelineItem[] = [
-      ...view.comments.map((comment) => ({ kind: 'comment' as const, key: `c${comment.id}`, at: comment.createdAt, comment })),
-      // The first history row is the ticket being reported; the header already shows that.
-      ...view.history.filter((h) => h.fromStatus !== null).map((entry) => ({ kind: 'status' as const, key: `s${entry.id}`, at: entry.changedAt, entry })),
-    ];
-    return items.sort((a, b) => a.at.localeCompare(b.at));
+    return view ? buildTimeline(view.history, view.comments) : [];
   });
 
   protected readonly actions = computed<StatusAction[]>(() => {

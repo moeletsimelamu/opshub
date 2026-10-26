@@ -140,8 +140,12 @@
                     <div>
                       <p>
                         <span class="author">{{ item.entry.changedBy.displayName }}</span>
-                        changed the status from {{ statusLabel(item.entry.fromStatus) }} to
-                        <strong>{{ statusLabel(item.entry.toStatus) }}</strong>
+                        @if (item.entry.fromStatus === null) {
+                          reported this ticket
+                        } @else {
+                          changed the status from {{ statusLabel(item.entry.fromStatus) }} to
+                          <strong>{{ statusLabel(item.entry.toStatus) }}</strong>
+                        }
                         · <app-relative-time [value]="item.entry.changedAt" />
                       </p>
                       @if (item.entry.note) {
