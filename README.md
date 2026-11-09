@@ -293,8 +293,10 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
   protected.
 - **Accessibility testing** used axe-core and keyboard checks in Chromium. Screen readers and
   other browsers weren't tested.
-- **`npm audit` reports advisories in `undici`.** It's used only by the Angular build tool and
-  isn't shipped to browsers. Production dependencies report 0 vulnerabilities.
+- **`npm audit` reports moderate advisories in `glob` and `minimatch`.** They come from the
+  Angular CLI's package-management tooling, which runs only on the developer's machine and
+  isn't shipped to browsers. The fix needs newer major versions than the CLI accepts, so it
+  waits for an Angular CLI update. Production dependencies report 0 vulnerabilities.
 
 ## Future improvements
 
