@@ -1,4 +1,4 @@
-import { StatusHistoryEntry, TicketComment } from '../../core/api/models';
+import { AssignmentHistoryEntry, StatusHistoryEntry, TicketComment } from '../../core/api/models';
 import { buildTimeline } from './timeline';
 
 const thandi = { id: 'u-thandi', displayName: 'Thandi Mokoena' };
@@ -26,6 +26,19 @@ describe('buildTimeline', () => {
     );
 
     expect(items.map((i) => i.key)).toEqual(['s1', 'c10', 's2', 'c11']);
+  });
+
+  it('includes assignment changes, before a status change made at the same moment', () => {
+    const assignment: AssignmentHistoryEntry = {
+      id: 7, from: null, to: sipho, changedBy: sipho, note: null, changedAt: '2026-10-24T09:00:00Z',
+    };
+    const items = buildTimeline(
+      [history(1, null, 'Open', '2026-10-24T08:00:00Z'), history(2, 'Open', 'InProgress', '2026-10-24T09:00:00Z')],
+      [comment(10, '2026-10-24T09:30:00Z')],
+      [assignment],
+    );
+
+    expect(items.map((i) => i.key)).toEqual(['s1', 'a7', 's2', 'c10']);
   });
 
   it('puts a status change before a comment made at the same moment', () => {

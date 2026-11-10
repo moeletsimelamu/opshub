@@ -117,6 +117,31 @@ public sealed class TicketActivityService(
         return history;
     }
 
+    public async Task<Result<IReadOnlyList<AssignmentHistoryResponse>>> GetAssignmentsAsync(int ticketId, CancellationToken cancellationToken)
+    {
+        // Same visibility as the ticket itself: requesters see who is handling their own tickets.
+        if (!await db.Tickets.VisibleTo(currentUser).AnyAsync(t => t.Id == ticketId, cancellationToken))
+        {
+            return TicketService.TicketNotFound();
+        }
+
+        var assignments = await db.TicketAssignmentHistory
+            .AsNoTracking()
+            .Where(h => h.TicketId == ticketId)
+            .OrderBy(h => h.ChangedAt)
+            .ThenBy(h => h.Id)
+            .Select(h => new AssignmentHistoryResponse(
+                h.Id,
+                h.FromAgent == null ? null : new PersonSummary(h.FromAgent.Id, h.FromAgent.DisplayName),
+                h.ToAgent == null ? null : new PersonSummary(h.ToAgent.Id, h.ToAgent.DisplayName),
+                new PersonSummary(h.ChangedBy.Id, h.ChangedBy.DisplayName),
+                h.Note,
+                h.ChangedAt))
+            .ToListAsync(cancellationToken);
+
+        return assignments;
+    }
+
     private Task<List<Guid>> StaffRoleIdsAsync(CancellationToken cancellationToken) =>
         db.Roles
             .Where(r => r.Name == AppRoles.Administrator || r.Name == AppRoles.SupportAgent)

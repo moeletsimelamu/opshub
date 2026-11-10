@@ -91,6 +91,16 @@ export interface StatusHistoryEntry {
   changedAt: string;
 }
 
+/** A change of assigned agent: `from` is null for a first assignment, `to` when unassigned. */
+export interface AssignmentHistoryEntry {
+  id: number;
+  from: PersonSummary | null;
+  to: PersonSummary | null;
+  changedBy: PersonSummary;
+  note: string | null;
+  changedAt: string;
+}
+
 export interface UserSummary {
   id: string;
   email: string;

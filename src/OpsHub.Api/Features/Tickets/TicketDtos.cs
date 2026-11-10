@@ -67,6 +67,15 @@ public sealed record StatusHistoryResponse(
     string? Note,
     DateTime ChangedAt);
 
+/// <summary>A change of assigned agent. From is null for a first assignment; To is null when unassigned.</summary>
+public sealed record AssignmentHistoryResponse(
+    int Id,
+    PersonSummary? From,
+    PersonSummary? To,
+    PersonSummary ChangedBy,
+    string? Note,
+    DateTime ChangedAt);
+
 public sealed record AgentSummary(Guid Id, string DisplayName, int ActiveTicketCount);
 
 // ---------- Requests ----------

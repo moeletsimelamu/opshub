@@ -130,6 +130,18 @@ internal sealed partial class DevSeeder(
 
         Move(null, TicketStatus.Open, requester, createdAt);
 
+        // The agent picks the ticket up five minutes after it is reported, before any work
+        // (the quickest demo ticket starts 30 minutes in), so the assignment history agrees.
+        if (agent is not null)
+        {
+            ticket.AssignmentHistory.Add(new TicketAssignmentHistory
+            {
+                ToAgent = agent,
+                ChangedBy = agent,
+                ChangedAt = createdAt.AddMinutes(5),
+            });
+        }
+
         // The moment the agent last did work on the ticket; comments are placed after it.
         var lastWorkAt = createdAt;
 

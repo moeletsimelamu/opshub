@@ -186,8 +186,10 @@ public sealed partial class TicketService(
                 return Error.Validation("agentId", "Choose an active support agent.");
             }
 
-            ticket.AssignedAgentId = request.AgentId;
-            ticket.UpdatedAt = Now;
+            if (!TicketWorkflow.Assign(ticket, request.AgentId.Value, currentUser.Id, Now))
+            {
+                return await GetAsync(id, cancellationToken); // already assigned to them: nothing to record
+            }
         }
 
         LogTicketAssigned(logger, ticket.Id, request.AgentId, currentUser.Id);

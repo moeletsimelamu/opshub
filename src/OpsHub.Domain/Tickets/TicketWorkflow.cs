@@ -142,16 +142,32 @@ public static class TicketWorkflow
     }
 
     /// <summary>
+    /// Assigns (or reassigns) the ticket to an agent and records the change. Assigning the
+    /// agent who already has it changes nothing and returns false.
+    /// </summary>
+    public static bool Assign(Ticket ticket, Guid agentId, Guid changedById, DateTime now)
+    {
+        if (ticket.AssignedAgentId == agentId)
+        {
+            return false;
+        }
+
+        RecordAssignment(ticket, agentId, changedById, note: null, now);
+        return true;
+    }
+
+    /// <summary>
     /// Removes the assigned agent. A ticket that was being worked on (In Progress or
     /// Waiting) cannot stay in that status without an agent, so it goes back to Open,
-    /// the triage queue.
+    /// the triage queue. The reason is recorded once: on the status change if there is one,
+    /// otherwise on the assignment change.
     /// </summary>
     public static void ReturnToQueue(Ticket ticket, Guid changedById, string reason, DateTime now)
     {
-        ticket.AssignedAgentId = null;
-        ticket.UpdatedAt = now;
+        var statusChanges = RequiresAssignee(ticket.Status);
+        RecordAssignment(ticket, agentId: null, changedById, statusChanges ? null : reason, now);
 
-        if (RequiresAssignee(ticket.Status))
+        if (statusChanges)
         {
             Record(ticket, TicketStatus.Open, changedById, reason, now);
         }
@@ -166,6 +182,22 @@ public static class TicketWorkflow
         TicketStatus.Closed => "Closed",
         _ => status.ToString(),
     };
+
+    private static void RecordAssignment(Ticket ticket, Guid? agentId, Guid changedById, string? note, DateTime now)
+    {
+        ticket.AssignmentHistory.Add(new TicketAssignmentHistory
+        {
+            TicketId = ticket.Id,
+            FromAgentId = ticket.AssignedAgentId,
+            ToAgentId = agentId,
+            ChangedById = changedById,
+            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+            ChangedAt = now,
+        });
+
+        ticket.AssignedAgentId = agentId;
+        ticket.UpdatedAt = now;
+    }
 
     private static void Record(Ticket ticket, TicketStatus to, Guid changedById, string? note, DateTime now)
     {

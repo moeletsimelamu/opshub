@@ -89,4 +89,10 @@ public sealed class TicketsController(TicketService tickets, TicketActivityServi
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<StatusHistoryResponse>>> GetHistory(int id, CancellationToken cancellationToken) =>
         ToActionResult(await activity.GetHistoryAsync(id, cancellationToken));
+
+    [HttpGet("{id:int}/assignments")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<AssignmentHistoryResponse>>> GetAssignments(int id, CancellationToken cancellationToken) =>
+        ToActionResult(await activity.GetAssignmentsAsync(id, cancellationToken));
 }

@@ -102,8 +102,10 @@ erDiagram
   Categories ||--o{ Tickets : classifies
   Tickets ||--o{ TicketComments : has
   Tickets ||--o{ TicketStatusHistory : records
+  Tickets ||--o{ TicketAssignmentHistory : records
   AspNetUsers ||--o{ TicketComments : writes
   AspNetUsers ||--o{ TicketStatusHistory : changes
+  AspNetUsers ||--o{ TicketAssignmentHistory : "assigns, is assigned"
   AspNetUsers }o--o{ AspNetRoles : "AspNetUserRoles"
 
   AspNetUsers { guid Id PK  string Email UK  string DisplayName  bool IsActive  datetime CreatedAt  string PasswordHash }
@@ -111,6 +113,7 @@ erDiagram
   Tickets { int Id PK  string Title  string Description  int CategoryId FK  int Priority  int Status  guid RequesterId FK  guid AssignedAgentId FK  datetime CreatedAt  datetime UpdatedAt  datetime ResolvedAt  guid Version }
   TicketComments { int Id PK  int TicketId FK  guid AuthorId FK  string Body  bool IsInternal  datetime CreatedAt }
   TicketStatusHistory { int Id PK  int TicketId FK  int FromStatus  int ToStatus  guid ChangedById FK  string Note  datetime ChangedAt }
+  TicketAssignmentHistory { int Id PK  int TicketId FK  guid FromAgentId FK  guid ToAgentId FK  guid ChangedById FK  string Note  datetime ChangedAt }
 ```
 
 ### Constraints and why they exist
@@ -118,9 +121,10 @@ erDiagram
 | Rule | Where | Why |
 |---|---|---|
 | Users referenced by tickets cannot be deleted (`ON DELETE RESTRICT`) | Tickets, comments, history FKs | Users are deactivated (`IsActive = false`) so the audit trail keeps its authors. |
-| Comments and history are deleted with their ticket (`CASCADE`) | TicketComments, TicketStatusHistory | They have no meaning without the ticket. Tickets themselves are never deleted; *Closed* is the final state. |
+| Comments and history are deleted with their ticket (`CASCADE`) | TicketComments, TicketStatusHistory, TicketAssignmentHistory | They have no meaning without the ticket. Tickets themselves are never deleted; *Closed* is the final state. |
 | `CK_Tickets_Priority`: 1–4, `CK_Tickets_Status`: 1–5 | Tickets | The database rejects invalid enum values even if the API has a bug. |
 | `CK_Tickets_ResolvedAt` | Tickets | Active tickets have no resolution time; *Resolved* tickets must have one; *Closed* may or may not (a ticket can be closed without being resolved). |
+| `CK_TicketAssignmentHistory_Changes` | TicketAssignmentHistory | A row records a change: it can't be from nobody to nobody. |
 | Unique `NormalizedEmail` and `Categories.Name` | Indexes | Email is the sign-in name; category names appear in filters. |
 | `Version` concurrency token | Tickets | Rotated on every save. A stale edit throws `DbUpdateConcurrencyException`, which the API returns as **409 Conflict**. |
 | Enums stored as integers | Priority, Status | Sorting by priority gives Low → Critical; as text, "Critical" would sort first. |
@@ -251,6 +255,7 @@ The review findings and how each was verified: [REVIEW.md](REVIEW.md). Deploymen
 | GET | `/api/tickets/{id}/comments` | Signed in, visible | 200 (internal notes only for staff), or 404 |
 | POST | `/api/tickets/{id}/comments` | Signed in, visible | 201, 400, 403 `internal_comments_staff_only`, 404, 409 `ticket_closed` |
 | GET | `/api/tickets/{id}/history` | Signed in, visible | 200 status changes, oldest first, or 404 |
+| GET | `/api/tickets/{id}/assignments` | Signed in, visible | 200 assignment changes (from, to, who, when), oldest first, or 404 |
 | GET | `/api/categories` | Signed in | 200 active categories |
 | GET | `/api/agents` | Staff | 200 active support agents with their active ticket count |
 | GET | `/api/dashboard` | Staff | 200 live totals, counts by status and priority, agent workload, recently updated, resolution time |
@@ -273,7 +278,11 @@ tests that need no database.
 - **Change from the original plan:** reopening moves a ticket to *Open* rather than *In Progress*, so a
   reopened ticket with no assigned agent goes back to the triage queue instead of being stuck.
 - Entering *Resolved* sets `ResolvedAt`; reopening clears it; closing keeps it (null if never resolved).
-- Every change writes a `TicketStatusHistory` row with who, when and an optional note.
+- Every status change writes a `TicketStatusHistory` row with who, when and an optional note.
+- Every change of assigned agent writes a `TicketAssignmentHistory` row: from whom, to whom, by whom and
+  when. Assigning the agent who already has the ticket records nothing. When the system unassigns (an agent
+  is deactivated), the reason is recorded once: on the status change if the ticket also returns to *Open*,
+  otherwise on the assignment change.
 - A requester comment on a *Waiting for Information* ticket moves it back to *In Progress* automatically.
 - Tickets can only be assigned to active Support Agents (not requesters, administrators or deactivated agents).
 - Unassigning a ticket that is *In Progress* or *Waiting* returns it to *Open*.
@@ -282,8 +291,8 @@ tests that need no database.
 - Requesters may edit title, description and category only while their ticket is *Open*; priority
   changes after creation are staff-only. Closed tickets are read-only for everyone.
 
-**Not recorded yet:** assignment changes are applied but not written to a history table (only status
-changes are). A full audit log is listed as a future improvement.
+**Earlier assignments:** assignment history was added after the first release. Existing installations
+start recording from that version; earlier assignment changes weren't stored, so none are invented.
 
 ## 10. Dashboard and reporting
 

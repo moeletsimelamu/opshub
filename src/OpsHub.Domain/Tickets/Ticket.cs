@@ -47,5 +47,7 @@ public class Ticket
 
     public List<TicketStatusHistory> StatusHistory { get; set; } = [];
 
+    public List<TicketAssignmentHistory> AssignmentHistory { get; set; } = [];
+
     public static string FormatReference(int id) => $"OPS-{id:D6}";
 }

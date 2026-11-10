@@ -233,6 +233,47 @@ namespace OpsHub.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OpsHub.Domain.Tickets.TicketAssignmentHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChangedById")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FromAgentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("ToAgentId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedById");
+
+                    b.HasIndex("FromAgentId");
+
+                    b.HasIndex("ToAgentId");
+
+                    b.HasIndex("TicketId", "ChangedAt");
+
+                    b.ToTable("TicketAssignmentHistory", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TicketAssignmentHistory_Changes", "\"FromAgentId\" IS NOT NULL OR \"ToAgentId\" IS NOT NULL");
+                        });
+                });
+
             modelBuilder.Entity("OpsHub.Domain.Tickets.TicketComment", b =>
                 {
                     b.Property<int>("Id")
@@ -458,6 +499,39 @@ namespace OpsHub.Api.Data.Migrations
                     b.Navigation("Requester");
                 });
 
+            modelBuilder.Entity("OpsHub.Domain.Tickets.TicketAssignmentHistory", b =>
+                {
+                    b.HasOne("OpsHub.Domain.Users.AppUser", "ChangedBy")
+                        .WithMany()
+                        .HasForeignKey("ChangedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpsHub.Domain.Users.AppUser", "FromAgent")
+                        .WithMany()
+                        .HasForeignKey("FromAgentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OpsHub.Domain.Tickets.Ticket", "Ticket")
+                        .WithMany("AssignmentHistory")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpsHub.Domain.Users.AppUser", "ToAgent")
+                        .WithMany()
+                        .HasForeignKey("ToAgentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ChangedBy");
+
+                    b.Navigation("FromAgent");
+
+                    b.Navigation("Ticket");
+
+                    b.Navigation("ToAgent");
+                });
+
             modelBuilder.Entity("OpsHub.Domain.Tickets.TicketComment", b =>
                 {
                     b.HasOne("OpsHub.Domain.Users.AppUser", "Author")
@@ -503,6 +577,8 @@ namespace OpsHub.Api.Data.Migrations
 
             modelBuilder.Entity("OpsHub.Domain.Tickets.Ticket", b =>
                 {
+                    b.Navigation("AssignmentHistory");
+
                     b.Navigation("Comments");
 
                     b.Navigation("StatusHistory");

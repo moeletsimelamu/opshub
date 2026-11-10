@@ -131,7 +131,8 @@ Full design rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Status changes go through a single state machine in the domain layer: Open → In progress →
   Waiting for information → Resolved → Closed, plus reopening.
 - The rules decide who may make each change, and when a note or an assignee is required.
-- Every change is recorded in the ticket's history.
+- Every status change and every change of assigned agent is recorded, and the ticket's timeline
+  shows them with the comments: who reported it, who picked it up or reassigned it, and why.
 - The API returns each user's allowed actions with the ticket, so the interface only shows
   controls that will work.
 
@@ -216,10 +217,10 @@ The script `scripts/Test-SignIn.ps1` walks through the sign-in flow from PowerSh
 ## Testing
 
 ```bash
-# Backend: 58 unit + 139 integration tests
+# Backend: 63 unit + 144 integration tests
 dotnet test
 
-# Frontend: 50 unit and component tests (no browser needed)
+# Frontend: 51 unit and component tests (no browser needed)
 cd src/OpsHub.Web
 npx ng test --watch=false
 ```
@@ -289,8 +290,6 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
   copies.
 - **No email.** No password reset by email, notifications, email verification or MFA.
 - **No category management screen.** New installations start with five general IT categories.
-- **No assignment history.** Assignment changes aren't recorded in a history table; status
-  changes are.
 - **Encrypting the session keys is optional.** Without the certificate described in
   [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-first-deployment) they are stored as plain XML on
   the data volume, which then must be protected.
@@ -305,7 +304,7 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 
 - PostgreSQL and shared key storage, so more than one instance can run.
 - Email notifications and self-service password reset.
-- A category management screen and an assignment history.
+- A category management screen.
 - Automated accessibility checks in CI, and screen-reader testing.
 - A hosted demo.
 

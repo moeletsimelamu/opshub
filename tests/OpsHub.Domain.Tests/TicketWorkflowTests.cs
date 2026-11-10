@@ -262,6 +262,73 @@ public class TicketWorkflowTests
         Assert.Empty(ticket.StatusHistory);
     }
 
+    // ---------- Assignment history ----------
+
+    [Fact]
+    public void Assign_RecordsTheChange_FromNobodyToTheAgent()
+    {
+        var ticket = NewTicket(Open, assigned: false);
+        var adminId = Guid.NewGuid();
+
+        Assert.True(TicketWorkflow.Assign(ticket, AgentId, adminId, Now));
+
+        Assert.Equal(AgentId, ticket.AssignedAgentId);
+        var entry = Assert.Single(ticket.AssignmentHistory);
+        Assert.Null(entry.FromAgentId);
+        Assert.Equal(AgentId, entry.ToAgentId);
+        Assert.Equal(adminId, entry.ChangedById);
+        Assert.Equal(Now, entry.ChangedAt);
+        Assert.Equal(Now, ticket.UpdatedAt);
+    }
+
+    [Fact]
+    public void Assign_Reassigning_RecordsWhoItMovedFromAndTo()
+    {
+        var ticket = NewTicket(InProgress, assigned: true);
+        var otherAgentId = Guid.NewGuid();
+
+        TicketWorkflow.Assign(ticket, otherAgentId, AgentId, Now);
+
+        var entry = Assert.Single(ticket.AssignmentHistory);
+        Assert.Equal(AgentId, entry.FromAgentId);
+        Assert.Equal(otherAgentId, entry.ToAgentId);
+    }
+
+    [Fact]
+    public void Assign_TheAgentWhoAlreadyHasIt_ChangesNothing()
+    {
+        var ticket = NewTicket(InProgress, assigned: true);
+
+        Assert.False(TicketWorkflow.Assign(ticket, AgentId, AgentId, Now));
+
+        Assert.Empty(ticket.AssignmentHistory);
+        Assert.Equal(Now.AddDays(-1), ticket.UpdatedAt);
+    }
+
+    [Fact]
+    public void ReturnToQueue_OnAnOpenTicket_RecordsTheUnassignment_WithItsReason()
+    {
+        var ticket = NewTicket(Open, assigned: true);
+
+        TicketWorkflow.ReturnToQueue(ticket, AgentId, "Agent deactivated.", Now);
+
+        var entry = Assert.Single(ticket.AssignmentHistory);
+        Assert.Equal(AgentId, entry.FromAgentId);
+        Assert.Null(entry.ToAgentId);
+        Assert.Equal("Agent deactivated.", entry.Note);
+    }
+
+    [Fact]
+    public void ReturnToQueue_OnAWorkingTicket_KeepsTheReasonOnTheStatusChangeOnly()
+    {
+        var ticket = NewTicket(InProgress, assigned: true);
+
+        TicketWorkflow.ReturnToQueue(ticket, AgentId, "Agent deactivated.", Now);
+
+        Assert.Null(Assert.Single(ticket.AssignmentHistory).Note);                    // shown once, not twice
+        Assert.Equal("Agent deactivated.", Assert.Single(ticket.StatusHistory).Note);
+    }
+
     private static Ticket NewTicket(TicketStatus status, bool assigned) => new()
     {
         Id = 42,

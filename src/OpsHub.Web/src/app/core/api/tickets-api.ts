@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import {
   AgentSummary,
+  AssignmentHistoryEntry,
   CategorySummary,
   Dashboard,
   PagedResult,
@@ -86,6 +87,10 @@ export class TicketsApi {
 
   history(id: number): Observable<StatusHistoryEntry[]> {
     return this.http.get<StatusHistoryEntry[]>(`/api/tickets/${id}/history`);
+  }
+
+  assignments(id: number): Observable<AssignmentHistoryEntry[]> {
+    return this.http.get<AssignmentHistoryEntry[]>(`/api/tickets/${id}/assignments`);
   }
 
   categories(): Observable<CategorySummary[]> {

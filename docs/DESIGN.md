@@ -196,7 +196,7 @@ thing they must act on.
 Two columns on wide screens:
 - **Main (left):** reference + title, then the **"Next step" bar**: a labelled, tinted section holding the
   allowed status changes as verbs (*Start work*, *Ask requester*, *Resolve*, *Close*, *Reopen*). Then the
-  description, a **timeline** that merges comments and status changes in time order, starting with the ticket
+  description, a **timeline** that merges comments, status changes and assignment changes in time order, starting with the ticket
   being reported, and the reply box.
   Staff also get **Send and resolve** in the reply box.
 

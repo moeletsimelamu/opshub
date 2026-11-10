@@ -134,7 +134,7 @@
                       <p class="prose">{{ item.comment.body }}</p>
                     </div>
                   </li>
-                } @else {
+                } @else if (item.kind === 'status') {
                   <li class="event">
                     <span class="event-dot" aria-hidden="true"></span>
                     <div>
@@ -150,6 +150,31 @@
                       </p>
                       @if (item.entry.note) {
                         <p class="event-note">“{{ item.entry.note }}”</p>
+                      }
+                    </div>
+                  </li>
+                } @else {
+                  <li class="event">
+                    <span class="event-dot" aria-hidden="true"></span>
+                    <div>
+                      <p>
+                        <span class="author">{{ item.assignment.changedBy.displayName }}</span>
+                        @if (item.assignment.from && item.assignment.to) {
+                          reassigned this ticket from {{ item.assignment.from.displayName }} to
+                          <strong>{{ item.assignment.to.displayName }}</strong>
+                        } @else if (item.assignment.to) {
+                          @if (item.assignment.to.id === item.assignment.changedBy.id) {
+                            picked up this ticket
+                          } @else {
+                            assigned this ticket to <strong>{{ item.assignment.to.displayName }}</strong>
+                          }
+                        } @else {
+                          unassigned {{ item.assignment.from?.displayName }}
+                        }
+                        · <app-relative-time [value]="item.assignment.changedAt" />
+                      </p>
+                      @if (item.assignment.note) {
+                        <p class="event-note">“{{ item.assignment.note }}”</p>
                       }
                     </div>
                   </li>

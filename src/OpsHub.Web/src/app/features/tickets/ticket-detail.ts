@@ -7,7 +7,7 @@ import { RouterLink } from '@angular/router';
 import { BehaviorSubject, Observable, catchError, combineLatest, firstValueFrom, forkJoin, map, of, switchMap, tap } from 'rxjs';
 
 import { ApiError } from '../../core/api/api-error';
-import { AgentSummary, STATUS_LABELS, StatusHistoryEntry, TicketComment, TicketDetails, TicketStatus } from '../../core/api/models';
+import { AgentSummary, AssignmentHistoryEntry, STATUS_LABELS, StatusHistoryEntry, TicketComment, TicketDetails, TicketStatus } from '../../core/api/models';
 import { TicketsApi } from '../../core/api/tickets-api';
 import { SessionService } from '../../core/auth/session.service';
 import { keepPreviousData, toLoadState } from '../../core/load-state';
@@ -26,6 +26,7 @@ interface TicketView {
   ticket: TicketDetails;
   comments: TicketComment[];
   history: StatusHistoryEntry[];
+  assignments: AssignmentHistoryEntry[];
 }
 
 @Component({
@@ -69,7 +70,7 @@ export class TicketDetail implements HasUnsavedChanges {
 
   protected readonly timeline = computed<TimelineItem[]>(() => {
     const view = this.state().data;
-    return view ? buildTimeline(view.history, view.comments) : [];
+    return view ? buildTimeline(view.history, view.comments, view.assignments) : [];
   });
 
   protected readonly actions = computed<StatusAction[]>(() => {
@@ -294,6 +295,7 @@ export class TicketDetail implements HasUnsavedChanges {
       ticket: this.api.get(id),
       comments: this.api.comments(id),
       history: this.api.history(id),
+      assignments: this.api.assignments(id),
     }).pipe(tap((view) => this.title.setTitle(`${view.ticket.reference} · ${view.ticket.title} · OpsHub`)));
   }
 
