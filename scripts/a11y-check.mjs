@@ -203,6 +203,7 @@ try {
   await scan('phone: menu open');
 } catch (error) {
   console.error(`Could not finish the check: ${error.message}`);
+  if (process.env.GITHUB_ACTIONS === 'true') console.log(`::error title=Accessibility check::Could not finish: ${error.message.replace(/%/g, '%25').replace(/\r?\n/g, '%0A')}`);
   process.exitCode = 2;
 } finally {
   ws?.close();
@@ -211,12 +212,22 @@ try {
   try { rmSync(profile, { recursive: true, force: true }); } catch { /* Chrome may still hold files */ }
 }
 
+// On GitHub Actions each violation also becomes an annotation: annotations show on the run's
+// public page, while the job log needs a signed-in user, so a failure can be read by anyone.
+const onGitHub = process.env.GITHUB_ACTIONS === 'true';
+const escapeData = (s) => s.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+const escapeProperty = (s) => escapeData(s).replace(/:/g, '%3A').replace(/,/g, '%2C');
+
 const failed = results.filter((r) => r.violations.length);
 for (const { name, violations } of failed) {
   console.log(`\n${name}`);
   for (const v of violations) {
     console.log(`  ${v.id} (${v.impact}): ${v.help}`);
     for (const node of v.nodes) console.log(`    at ${node}`);
+    if (onGitHub) {
+      const details = [`${v.id} (${v.impact}): ${v.help}`, ...v.nodes.map((node) => `at ${node}`)].join('\n');
+      console.log(`::error title=${escapeProperty(`Accessibility: ${name}`)}::${escapeData(details)}`);
+    }
   }
 }
 if (process.exitCode !== 2) {
