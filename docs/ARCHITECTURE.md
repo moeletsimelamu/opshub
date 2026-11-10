@@ -141,6 +141,7 @@ match the planned ticket-list filters and default sort.
 | `Bootstrap:AdminEmail`, `AdminPassword`, `AdminDisplayName` | *(unset)* | unset | First administrator of a new installation. |
 | `ReverseProxy:Enabled`, `KnownProxies`, `KnownNetworks` | off | off | Which proxies may report the client's address and scheme. |
 | `DataProtection:KeysDirectory` | *(user profile)* | same | Where session-signing keys are kept; `/data/keys` in the container. |
+| `DataProtection:CertificatePath`, `CertificatePassword` | *(unset)* | unset | Optional .pfx certificate that encrypts those keys at rest. |
 
 Any key can be overridden by an environment variable, using `__` for `:`
 (e.g. `ConnectionStrings__OpsHub`). Production values and secrets:
@@ -197,8 +198,8 @@ sequenceDiagram
 ### Known limitations (demo scope)
 
 No email verification, password reset by email or multi-factor authentication. Administrators
-set initial passwords. Session keys are stored unencrypted on the data volume
-([DEPLOYMENT.md § 9](DEPLOYMENT.md#9-checklist-before-going-live)).
+set initial passwords. Session keys are encrypted at rest only when a certificate is configured
+([DEPLOYMENT.md § 4](DEPLOYMENT.md#4-first-deployment), step 3).
 
 ### Hardening for production
 
@@ -207,7 +208,7 @@ set initial passwords. Session keys are stored unencrypted on the data volume
 | Response headers | Strict CSP for JSON (`default-src 'none'`); for the Angular page, scripts only from OpsHub itself (`script-src 'self'`, no inline scripts, no `eval`); `nosniff`, no framing, no referrer; HSTS outside Development | An injected `<script>` can't run, and the app can't be framed. Angular's critical-CSS inlining is switched off because it relies on an inline event handler. Inline *styles* are allowed: Angular adds component styles at runtime, and CSS can't run code |
 | Behind a reverse proxy | `X-Forwarded-For`/`-Proto` are believed only from proxies listed in `ReverseProxy` settings | Otherwise any client could fake its IP address and dodge the login rate limit |
 | HTTP vs HTTPS | API requests over plain HTTP get `400 HTTPS is required`; `/health` and the page still answer | The cookies are `Secure`-only. Without this, a misconfigured proxy shows up as a baffling 500 at sign-in |
-| Session keys | Persisted to a configurable folder (`/data/keys` in the container) under a fixed application name | Otherwise every restart or redeploy signs everyone out |
+| Session keys | Persisted to a configurable folder (`/data/keys` in the container) under a fixed application name, and encrypted with an optional X.509 certificate through the framework's own `ProtectKeysWithCertificate`. A wrong certificate path or password stops the app at startup | Otherwise every restart or redeploy signs everyone out, and readable keys would let anyone with the files forge a session cookie |
 | First run | Roles and starter categories are created in every environment; the first administrator comes from `Bootstrap` settings, only while no active administrator exists | A new installation is usable without demo data, and leftover settings can't create a second admin or reset a password |
 
 The review findings and how each was verified: [REVIEW.md](REVIEW.md). Deployment settings:

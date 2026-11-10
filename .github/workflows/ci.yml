@@ -97,9 +97,25 @@ jobs:
       - name: Build the image
         run: docker build --tag opshub:ci .
 
+      # The session-key certificate, made with the same openssl commands as docs/DEPLOYMENT.md
+      # § 4 step 3, so the documented steps are tested too. Its password is generated, never printed.
+      - name: Create the session-key certificate
+        run: |
+          OPSHUB_KEYS_PASSWORD="ci-$(openssl rand -hex 16)"
+          echo "::add-mask::$OPSHUB_KEYS_PASSWORD"
+          echo "OPSHUB_KEYS_PASSWORD=$OPSHUB_KEYS_PASSWORD" >> "$GITHUB_ENV"
+          export OPSHUB_KEYS_PASSWORD
+          openssl req -x509 -newkey rsa:3072 -nodes -days 3650 -subj "/CN=OpsHub key protection" \
+            -keyout keys.key -out keys.crt
+          openssl pkcs12 -export -inkey keys.key -in keys.crt -out opshub-keys.pfx -passout env:OPSHUB_KEYS_PASSWORD
+          rm keys.key keys.crt
+          sudo mkdir -p /etc/opshub && sudo mv opshub-keys.pfx /etc/opshub/
+          sudo chown 1654 /etc/opshub/opshub-keys.pfx && sudo chmod 400 /etc/opshub/opshub-keys.pfx
+
       # Like a real first deployment: an empty /data volume, Production settings, HTTPS ended by
-      # a reverse proxy (Caddy, with its own local certificate authority), and the first
-      # administrator created from settings. The password is generated and never printed.
+      # a reverse proxy (Caddy, with its own local certificate authority), the first
+      # administrator created from settings, and encrypted session keys. The password is
+      # generated and never printed.
       - name: Start OpsHub behind an HTTPS reverse proxy
         run: |
           password="ci-$(openssl rand -hex 16)"
@@ -107,6 +123,9 @@ jobs:
           echo "SMOKE_PASSWORD=$password" >> "$GITHUB_ENV"
           docker network create --subnet 172.30.0.0/24 opshub-net
           docker run --detach --name opshub --network opshub-net --publish 8080:8080 \
+            --volume /etc/opshub/opshub-keys.pfx:/run/secrets/opshub-keys.pfx:ro \
+            --env DataProtection__CertificatePath=/run/secrets/opshub-keys.pfx \
+            --env DataProtection__CertificatePassword="$OPSHUB_KEYS_PASSWORD" \
             --env ReverseProxy__Enabled=true \
             --env ReverseProxy__KnownNetworks__0=172.30.0.0/24 \
             --env Bootstrap__AdminEmail=admin@ci.example \
@@ -127,17 +146,25 @@ jobs:
       - name: Smoke test through the proxy
         run: bash scripts/smoke-test.sh https://localhost:8443 admin@ci.example
 
+      # Signing in created the first session key. On the volume it must be encrypted XML.
+      - name: The session key on the volume is encrypted
+        run: |
+          docker exec opshub sh -c 'grep -l EncryptedData /data/keys/key-*.xml'
+          ! docker exec opshub sh -c 'grep -l "unencrypted form" /data/keys/key-*.xml'
+
       # Straight to the container, bypassing the proxy: health probes work, the API refuses.
       - name: Plain HTTP reaches /health, but the API refuses it
         run: |
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health)" = 200
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/auth/me)" = 400
 
-      # A restart must keep the database, the session keys and the administrator.
+      # A restart must keep the database, the session keys and the administrator. The key is
+      # read back by decrypting it; had that failed, the app would have made a replacement key.
       - name: Restart the container and test again
         run: |
           docker restart opshub
           bash scripts/smoke-test.sh https://localhost:8443 admin@ci.example
+          test "$(docker exec opshub sh -c 'ls /data/keys/key-*.xml | wc -l')" = 1
 
       - name: Show the container logs
         if: always()

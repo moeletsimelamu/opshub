@@ -94,7 +94,7 @@ builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(180));
 
 var app = builder.Build();
 
-app.WarnIfKeysAreNotPersisted();
+app.CheckKeyStorage();
 await app.InitialiseDatabaseAsync();
 
 // ---------- HTTP pipeline (order matters) ----------

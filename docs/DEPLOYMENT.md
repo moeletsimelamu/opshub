@@ -60,6 +60,8 @@ underscores). Lists use an index: `ReverseProxy__KnownNetworks__0`.
 | `ASPNETCORE_ENVIRONMENT` | `Production` | `Production` or `Demo` ([§ 2](#2-environments)) |
 | `ConnectionStrings__OpsHub` | `Data Source=/data/opshub.db` | The SQLite database file |
 | `DataProtection__KeysDirectory` | `/data/keys` | Where the cookie-signing keys are kept. Must survive restarts |
+| `DataProtection__CertificatePath` | none | A .pfx certificate that encrypts those keys ([§ 4](#4-first-deployment) step 3). Recommended |
+| `DataProtection__CertificatePassword` | none | **Secret.** The certificate's password |
 | `Database__ApplyMigrationsOnStartup` | `true` | Update the database schema when the app starts ([§ 6](#6-upgrading)) |
 | `ReverseProxy__Enabled` | `false` | Believe `X-Forwarded-*` headers from known proxies. Turn on behind a proxy |
 | `ReverseProxy__KnownProxies__0`, `__1`, … | none | Exact proxy addresses, e.g. `172.17.0.1` |
@@ -106,7 +108,35 @@ chmod 600 opshub.env
 (the Docker bridge's gateway). Check yours with
 `docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}'`.
 
-**3. Start the container.** The port is published on `127.0.0.1` only, so the outside world
+**3. Create a certificate that encrypts the session keys (recommended).** Without one, the
+keys in `/data/keys` are stored as plain XML, and anyone who can read them, for example from
+a backup, could forge a session cookie. The certificate is kept outside the data volume.
+
+```bash
+read -rs -p "Certificate password: " OPSHUB_KEYS_PASSWORD && export OPSHUB_KEYS_PASSWORD && echo
+openssl req -x509 -newkey rsa:3072 -nodes -days 3650 -subj "/CN=OpsHub key protection" \
+  -keyout keys.key -out keys.crt
+openssl pkcs12 -export -inkey keys.key -in keys.crt -out opshub-keys.pfx -passout env:OPSHUB_KEYS_PASSWORD
+rm keys.key keys.crt
+sudo mkdir -p /etc/opshub && sudo mv opshub-keys.pfx /etc/opshub/
+sudo chown 1654 /etc/opshub/opshub-keys.pfx && sudo chmod 400 /etc/opshub/opshub-keys.pfx
+```
+
+`1654` is the image's unprivileged `app` user, the only account that needs to read the file.
+Add the two settings to `opshub.env`:
+
+```bash
+cat >> opshub.env <<'EOF'
+DataProtection__CertificatePath=/run/secrets/opshub-keys.pfx
+DataProtection__CertificatePassword=<the certificate password>
+EOF
+```
+
+Back up `opshub-keys.pfx` and its password **separately** from the data backups. Without
+them the stored keys can't be decrypted: nothing in the database is lost, but everyone is
+signed out and must sign in again.
+
+**4. Start the container.** The port is published on `127.0.0.1` only, so the outside world
 can reach OpsHub only through the proxy.
 
 ```bash
@@ -114,15 +144,18 @@ docker volume create opshub-data
 docker run --detach --name opshub --restart unless-stopped \
   --publish 127.0.0.1:8080:8080 \
   --volume opshub-data:/data \
+  --volume /etc/opshub/opshub-keys.pfx:/run/secrets/opshub-keys.pfx:ro \
   --env-file opshub.env \
   opshub
 docker logs opshub
 ```
 
+If you skipped step 3, leave out the `opshub-keys.pfx` line.
+
 On the first start the log shows the schema being created, the roles and categories being
 added, and `Bootstrap created administrator you@yourcompany.example`.
 
-**4. Point the proxy at it.** A complete Caddyfile:
+**5. Point the proxy at it.** A complete Caddyfile:
 
 ```
 opshub.yourcompany.example {
@@ -130,7 +163,7 @@ opshub.yourcompany.example {
 }
 ```
 
-**5. Check the deployment** from any machine with Bash and curl:
+**6. Check the deployment** from any machine with Bash and curl:
 
 ```bash
 SMOKE_PASSWORD='<the admin password>' scripts/smoke-test.sh https://opshub.yourcompany.example you@yourcompany.example
@@ -139,8 +172,8 @@ SMOKE_PASSWORD='<the admin password>' scripts/smoke-test.sh https://opshub.yourc
 It checks the health endpoint, the page and its security headers, that the API refuses
 anonymous calls, a real sign-in, and that ticket categories exist. It only reads.
 
-**6. Remove the bootstrap password.** Delete the `Bootstrap__AdminPassword` line from
-`opshub.env` and recreate the container (`docker rm -f opshub`, then step 3 again). The
+**7. Remove the bootstrap password.** Delete the `Bootstrap__AdminPassword` line from
+`opshub.env` and recreate the container (`docker rm -f opshub`, then step 4 again). The
 account stays; the settings are ignored once an administrator exists. Then sign in, change
 the password on the **Account** page, and add your agents and requesters under **Users**.
 
@@ -176,7 +209,7 @@ disposable:
 git pull
 docker build --tag opshub .
 docker rm -f opshub
-docker run ...   # the same command as in § 4 step 3
+docker run ...   # the same command as in § 4 step 4
 ```
 
 The data is in the volume, so it survives. Pending database migrations are applied when the
@@ -199,9 +232,10 @@ docker run --rm --volume opshub-data:/data --volume "$PWD":/backup alpine \
 docker start opshub
 ```
 
-The archive includes the cookie-signing keys, which are stored **unencrypted**
-([§ 9](#9-checklist-before-going-live)). Store backups like secrets, ideally encrypted and
-off the server.
+The archive includes the cookie-signing keys. With a certificate ([§ 4](#4-first-deployment) step 3)
+they are encrypted; without one they are plain XML, so the archive must be protected like a
+secret. Either way, store backups encrypted and off the server, and keep the certificate and
+its password in a separate place from them.
 
 **Restore:** stop the container, empty the volume, unpack the archive into it, start again:
 
@@ -223,7 +257,8 @@ docker start opshub
   - repeated `Sign-in failed` from many accounts: password guessing;
   - any `Error`.
 - **Expected warnings** on a correct installation:
-  - `No XML encryptor configured`: see the keys item in [§ 9](#9-checklist-before-going-live);
+  - only without a key certificate: `DataProtection:CertificatePath is not set` and
+    `No XML encryptor configured`; see the keys item in [§ 9](#9-checklist-before-going-live);
   - `Failed to determine the https port for redirect`: the container has no HTTPS port of its
     own; the proxy handles HTTPS.
 
@@ -240,9 +275,9 @@ docker start opshub
 - [ ] `AllowedHosts` set to your domain, so requests for other host names are refused. Only
       if the platform's health check calls `/health` with an IP address as the host name,
       leave it at `*`.
-- [ ] Session keys: on Linux they are stored unencrypted in `/data/keys`. Anyone who can read
-      them can forge a session cookie, so the volume and its backups must be protected.
-      Encrypting them at rest (with a certificate or a cloud key vault) is a next step.
+- [ ] Session keys encrypted with a certificate ([§ 4](#4-first-deployment) step 3), and the
+      certificate and its password backed up separately. Without it, anyone who can read
+      `/data/keys` or a backup can forge a session cookie.
 - [ ] The smoke test passes against the real address.
 
 ## 10. Limits
@@ -255,7 +290,9 @@ docker start opshub
 - **Categories** start as five general IT categories. There is no screen to change them yet.
 - **No image registry.** CI builds and tests the image but doesn't publish it; build it on
   the server as above.
-- **Keys unencrypted at rest** ([§ 9](#9-checklist-before-going-live)).
+- **Key encryption is optional.** Without the certificate the session keys are stored as plain
+  XML ([§ 9](#9-checklist-before-going-live)). The certificate is a file you manage; a cloud
+  key vault would be the next step.
 
 ## 11. How this was verified
 
@@ -263,12 +300,15 @@ docker start opshub
 
 1. Build the image from a clean checkout.
 2. Start it with an empty volume in Production, behind Caddy as an HTTPS reverse proxy, with
-   `ReverseProxy` and `Bootstrap` settings: a first deployment.
+   `ReverseProxy` and `Bootstrap` settings and a key certificate created with the `openssl`
+   commands from [§ 4](#4-first-deployment): a first deployment.
 3. Run `scripts/smoke-test.sh` through the proxy, verifying TLS against Caddy's own
    certificate authority.
 4. Check that plain HTTP straight to the container reaches `/health` but the API refuses it.
-5. Restart the container and run the smoke test again: data, keys and the administrator must
-   survive, and no second administrator is created.
+5. Check that the session key on the volume is encrypted.
+6. Restart the container and run the smoke test again: data, keys and the administrator must
+   survive, the key must still be the only one (it was decrypted, not replaced), and no second
+   administrator is created.
 
 **Integration tests** (`tests/OpsHub.Api.IntegrationTests`): first-run setup and the
 bootstrap rules (`FirstRunTests`), serving the Angular app and its caching and security

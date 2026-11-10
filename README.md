@@ -216,7 +216,7 @@ The script `scripts/Test-SignIn.ps1` walks through the sign-in flow from PowerSh
 ## Testing
 
 ```bash
-# Backend: 58 unit + 135 integration tests
+# Backend: 58 unit + 139 integration tests
 dotnet test
 
 # Frontend: 50 unit and component tests (no browser needed)
@@ -260,6 +260,8 @@ pull request:
 - Content-Security-Policy that only allows scripts from OpsHub itself, plus `nosniff`, no
   framing, no referrer, HSTS outside development and a 1 MB request limit.
 - The API refuses plain HTTP, because its cookies are HTTPS-only.
+- The keys that sign session cookies can be encrypted at rest with a certificate; CI deploys
+  the container that way and checks the key on disk is encrypted.
 
 A review of security, accessibility (WCAG 2.2 AA, 0 axe-core violations) and responsive
 layout (375–1440 px), with each finding and how it was verified, is in
@@ -289,8 +291,9 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 - **No category management screen.** New installations start with five general IT categories.
 - **No assignment history.** Assignment changes aren't recorded in a history table; status
   changes are.
-- **Session keys are stored unencrypted** on the data volume, which therefore must be
-  protected.
+- **Encrypting the session keys is optional.** Without the certificate described in
+  [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-first-deployment) they are stored as plain XML on
+  the data volume, which then must be protected.
 - **Accessibility testing** used axe-core and keyboard checks in Chromium. Screen readers and
   other browsers weren't tested.
 - **`npm audit` reports moderate advisories in `glob` and `minimatch`.** They come from the
