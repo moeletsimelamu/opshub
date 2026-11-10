@@ -67,6 +67,13 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/user-list').then((m) => m.UserList),
       },
       {
+        path: 'admin/categories',
+        title: 'Categories · OpsHub',
+        canActivate: [roleGuard],
+        data: { roles: ['Administrator'] },
+        loadComponent: () => import('./features/admin/category-list').then((m) => m.CategoryList),
+      },
+      {
         path: '**',
         title: 'Not found · OpsHub',
         loadComponent: () => import('./layout/not-found').then((m) => m.NotFound),

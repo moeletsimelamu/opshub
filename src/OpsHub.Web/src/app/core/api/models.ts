@@ -91,6 +91,14 @@ export interface StatusHistoryEntry {
   changedAt: string;
 }
 
+/** A category as administrators see it (GET /api/admin/categories). */
+export interface CategoryAdmin {
+  id: number;
+  name: string;
+  isActive: boolean;
+  ticketCount: number;
+}
+
 /** A change of assigned agent: `from` is null for a first assignment, `to` when unassigned. */
 export interface AssignmentHistoryEntry {
   id: number;

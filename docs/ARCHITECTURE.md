@@ -257,6 +257,9 @@ The review findings and how each was verified: [REVIEW.md](REVIEW.md). Deploymen
 | GET | `/api/tickets/{id}/history` | Signed in, visible | 200 status changes, oldest first, or 404 |
 | GET | `/api/tickets/{id}/assignments` | Signed in, visible | 200 assignment changes (from, to, who, when), oldest first, or 404 |
 | GET | `/api/categories` | Signed in | 200 active categories |
+| GET | `/api/admin/categories` | Administrator | 200 every category with its ticket count |
+| POST | `/api/admin/categories` | Administrator | 201, 400, or 409 `category_name_in_use` (names compare ignoring case) |
+| PUT | `/api/admin/categories/{id}` | Administrator | 200, 400, 404, or 409 (`category_name_in_use`, `last_active_category`) |
 | GET | `/api/agents` | Staff | 200 active support agents with their active ticket count |
 | GET | `/api/dashboard` | Staff | 200 live totals, counts by status and priority, agent workload, recently updated, resolution time |
 

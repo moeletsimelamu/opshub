@@ -1,0 +1,15 @@
+/* Shares the table, status and inactive-row styles of user-list.css; these are the additions. */
+
+.intro {
+  max-width: var(--measure);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.col-count {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}

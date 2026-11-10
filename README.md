@@ -37,6 +37,8 @@ figures on workload and resolution time.
 
 **Administrator**
 - Everything an agent can do, plus adding users, changing roles and deactivating accounts.
+- Manages the ticket categories: adds, renames, deactivates and reactivates them. Categories are
+  never deleted, so tickets already filed under one keep it.
 - Can't deactivate or demote their own account, so an active administrator always remains.
 
 Every user can change their password. Expired sessions, an unreachable server, editing
@@ -217,10 +219,10 @@ The script `scripts/Test-SignIn.ps1` walks through the sign-in flow from PowerSh
 ## Testing
 
 ```bash
-# Backend: 63 unit + 144 integration tests
+# Backend: 63 unit + 159 integration tests
 dotnet test
 
-# Frontend: 51 unit and component tests (no browser needed)
+# Frontend: 55 unit and component tests (no browser needed)
 cd src/OpsHub.Web
 npx ng test --watch=false
 ```
@@ -289,7 +291,6 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 - **One instance only.** SQLite and file-based session keys don't support running several
   copies.
 - **No email.** No password reset by email, notifications, email verification or MFA.
-- **No category management screen.** New installations start with five general IT categories.
 - **Encrypting the session keys is optional.** Without the certificate described in
   [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-first-deployment) they are stored as plain XML on
   the data volume, which then must be protected.
@@ -304,7 +305,6 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 
 - PostgreSQL and shared key storage, so more than one instance can run.
 - Email notifications and self-service password reset.
-- A category management screen.
 - Automated accessibility checks in CI, and screen-reader testing.
 - A hosted demo.
 

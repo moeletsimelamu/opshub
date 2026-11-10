@@ -1,0 +1,74 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Categories</h1>
+      <p class="page-subtitle tabular" aria-live="polite">
+        @if (state().data; as categories) {
+          {{ activeCount() }} active · {{ categories.length - activeCount() }} inactive
+        } @else {
+          &nbsp;
+        }
+      </p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="openDialog(null)"><app-icon name="plus" /> Add category</button>
+  </header>
+
+  <p class="intro">
+    Employees choose one of the active categories when they report a problem. A category that’s no longer
+    needed is deactivated rather than deleted, so tickets already filed under it keep it.
+  </p>
+
+  @if (state().kind === 'error' && !state().data) {
+    <div class="banner banner-error" role="alert">
+      <app-icon name="alert" />
+      <div class="banner-body">
+        <p class="banner-title">Categories couldn’t be loaded</p>
+        <p>{{ $any(state()).error.message }}</p>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="retry()"><app-icon name="refresh" /> Try again</button>
+    </div>
+  } @else {
+    <div class="panel table-panel" [class.is-refreshing]="state().kind === 'loading' && state().data">
+      <table class="data-table" [attr.aria-busy]="state().kind === 'loading'">
+        <caption class="sr-only">Categories, sorted by name</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col" class="col-status">Status</th>
+            <th scope="col" class="col-count">Tickets</th>
+            <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (state().data; as categories) {
+            @for (category of categories; track category.id) {
+              <tr [class.inactive]="!category.isActive">
+                <td><span class="name">{{ category.name }}</span></td>
+                <td class="col-status">
+                  <span class="state" [class.off]="!category.isActive">
+                    <span class="dot" aria-hidden="true"></span>{{ category.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td class="col-count tabular">{{ category.ticketCount }}</td>
+                <td class="col-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="openDialog(category)">
+                    Edit<span class="sr-only"> {{ category.name }}</span>
+                  </button>
+                </td>
+              </tr>
+            }
+          } @else {
+            @for (row of [1, 2, 3, 4, 5]; track row) {
+              <tr aria-hidden="true">
+                <td><span class="skeleton" style="width: 140px"></span></td>
+                <td class="col-status"><span class="skeleton" style="width: 70px"></span></td>
+                <td class="col-count"><span class="skeleton" style="width: 30px"></span></td>
+                <td class="col-actions"></td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

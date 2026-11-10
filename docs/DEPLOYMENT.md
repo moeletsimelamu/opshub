@@ -287,7 +287,7 @@ docker start opshub
   migrations as a separate step.
 - **No outgoing email.** Password resets are done by an administrator; nobody is notified of
   ticket changes.
-- **Categories** start as five general IT categories. There is no screen to change them yet.
+- **Categories** start as five general IT categories; administrators change them under **Categories**.
 - **No image registry.** CI builds and tests the image but doesn't publish it; build it on
   the server as above.
 - **Key encryption is optional.** Without the certificate the session keys are stored as plain

@@ -1,0 +1,59 @@
+<div class="dialog-header">
+  <h2 id="category-dialog-title">{{ data.category ? 'Edit ' + data.category.name : 'Add a category' }}</h2>
+  <p class="dialog-description">
+    @if (data.category) {
+      A new name shows on every ticket filed under this category, including old ones.
+    } @else {
+      Employees choose a category when they report a problem. It helps the support team triage.
+    }
+  </p>
+</div>
+
+@if (error(); as err) {
+  <div class="banner banner-error" role="alert">
+    <app-icon name="alert" />
+    <div class="banner-body">
+      <p class="banner-title">{{ err.title }}</p>
+      <p>{{ err.message }}</p>
+    </div>
+  </div>
+}
+
+<form [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <div class="field">
+    <label class="field-label" for="category-name">Name</label>
+    <input
+      id="category-name"
+      class="input"
+      formControlName="name"
+      autocomplete="off"
+      [attr.maxlength]="nameMaxLength"
+      [attr.aria-invalid]="isInvalid(form.controls.name)"
+      aria-describedby="category-name-hint category-name-error"
+    />
+    <p class="field-hint" id="category-name-hint">For example “Printers” or “Access &amp; Accounts”. At most {{ nameMaxLength }} characters.</p>
+    <app-field-error [control]="form.controls.name" errorId="category-name-error" label="Name" />
+  </div>
+
+  @if (data.category) {
+    <label class="checkbox">
+      <input type="checkbox" formControlName="isActive" aria-describedby="category-active-hint" />
+      <span>
+        <strong>Active</strong>
+        <span class="field-hint" id="category-active-hint">
+          Inactive categories can’t be chosen for new tickets. Tickets already filed under it keep it.
+        </span>
+      </span>
+    </label>
+  }
+
+  <div class="dialog-actions">
+    <button type="button" class="btn btn-secondary" (click)="dialogRef.close()">Cancel</button>
+    <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      @if (saving()) {
+        <span class="spinner" aria-hidden="true"></span>
+      }
+      {{ data.category ? 'Save changes' : 'Add category' }}
+    </button>
+  </div>
+</form>

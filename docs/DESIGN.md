@@ -148,7 +148,7 @@ Weights: 400 regular, 500 medium (labels, table titles), 600 semibold (headings)
 |---|---|---|
 | Requester | My tickets · **New ticket** | My tickets |
 | Support Agent | Dashboard · Queue · **New ticket** | Dashboard |
-| Administrator | Dashboard · Queue · Users · **New ticket** | Dashboard |
+| Administrator | Dashboard · Queue · Users · Categories · **New ticket** | Dashboard |
 
 Staff land on the **Dashboard**, which summarises the desk and links into the Queue. Filters, search, sort and page live in the **URL**, so views can be
 bookmarked and the back button works.
@@ -226,6 +226,12 @@ other devices are signed out.
 Search + role + status filters; table: name/email · role · status · created. *Add user* opens a dialog.
 Row action *Edit* opens the same dialog (display name, role, active). The dialog explains the effects of
 deactivation ("signs them out and returns their active tickets to the queue").
+
+### Categories (admin)
+Same table style as Users: name · status · number of tickets · *Edit*. *Add category* and *Edit* open a
+dialog (name; active on edit). There is no delete: deactivating hides a category from the ticket forms
+while tickets filed under it keep it, which the page and the dialog both say. Duplicate names (ignoring
+case) are refused on the name field; the last active category can't be deactivated.
 
 ## 7. Responsive behaviour
 
