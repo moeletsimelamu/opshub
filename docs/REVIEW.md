@@ -114,7 +114,8 @@ phone), so their buttons can always be reached.
 Honest gaps. None of these were tested, so no claim is made about them:
 
 - **No screen-reader testing** (NVDA, JAWS, VoiceOver). axe and keyboard checks catch many but
-  not all problems a screen-reader user would meet.
+  not all problems a screen-reader user would meet. The manual test to run is written up in
+  [SCREEN-READER-TEST.md](SCREEN-READER-TEST.md); its results will be recorded here.
 - **Chromium only.** Not tested in Firefox or Safari, or on real phones.
 - **Automated checks came later.** Since this review, CI runs `scripts/a11y-check.mjs` on every
   push: axe-core with all its rules on every screen and the main dialogs, as each role and at

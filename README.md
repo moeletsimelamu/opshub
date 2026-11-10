@@ -315,7 +315,8 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
   [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-first-deployment) they are stored as plain XML on
   the data volume, which then must be protected.
 - **Accessibility testing** is automated with axe-core in Chromium, plus manual keyboard checks.
-  Screen readers and other browsers haven't been tested.
+  Screen readers and other browsers haven't been tested yet; a step-by-step NVDA test is ready in
+  [docs/SCREEN-READER-TEST.md](docs/SCREEN-READER-TEST.md).
 - **`npm audit` reports moderate advisories in `glob` and `minimatch`.** They come from the
   Angular CLI's package-management tooling, which runs only on the developer's machine and
   isn't shipped to browsers. The fix needs newer major versions than the CLI accepts, so it
@@ -325,7 +326,7 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 
 - PostgreSQL and shared key storage, so more than one instance can run.
 - Email verification and two-factor sign-in.
-- Screen-reader testing, and testing in other browsers.
+- Running the [screen-reader test](docs/SCREEN-READER-TEST.md), and testing in other browsers.
 - A hosted demo.
 
 ## Documentation
@@ -335,6 +336,7 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Structure, data model, security model, API conventions, business rules and the reasoning behind them |
 | [docs/DESIGN.md](docs/DESIGN.md) | Design system (colour, type, spacing, components) and screen designs |
 | [docs/REVIEW.md](docs/REVIEW.md) | Security, accessibility and responsive-design review |
+| [docs/SCREEN-READER-TEST.md](docs/SCREEN-READER-TEST.md) | Manual NVDA test of every screen, with a results template |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production setup, settings, deployment, backups and go-live checklist |
 
 Database schema changes:
