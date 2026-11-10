@@ -5,6 +5,7 @@ using OpsHub.Api.Auth;
 using OpsHub.Api.Data;
 using OpsHub.Api.Data.Seeding;
 using OpsHub.Api.Features.Dashboard;
+using OpsHub.Api.Features.Email;
 using OpsHub.Api.Features.Tickets;
 using OpsHub.Api.Features.Categories;
 using OpsHub.Api.Features.Users;
@@ -58,6 +59,9 @@ builder.Services.AddOpsHubAuth(builder.Configuration);
 // ---------- Hosting: reverse proxy, key storage ----------
 builder.Services.AddOpsHubReverseProxy(builder.Configuration);
 builder.Services.AddOpsHubKeyStorage(builder.Configuration);
+
+// ---------- Email: password reset links and ticket notifications (off unless configured) ----------
+builder.Services.AddOpsHubEmail(builder.Configuration);
 
 // ---------- Application services ----------
 builder.Services.AddScoped<ReferenceDataSeeder>();

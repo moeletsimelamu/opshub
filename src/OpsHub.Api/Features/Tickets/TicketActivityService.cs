@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OpsHub.Api.Auth;
 using OpsHub.Api.Common.Results;
 using OpsHub.Api.Data;
+using OpsHub.Api.Features.Email;
 using OpsHub.Domain.Tickets;
 using OpsHub.Domain.Users;
 
@@ -12,7 +13,8 @@ public sealed class TicketActivityService(
     OpsHubDbContext db,
     TicketService tickets,
     ICurrentUser currentUser,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    TicketNotifier notifier)
 {
     public async Task<Result<IReadOnlyList<CommentResponse>>> GetCommentsAsync(int ticketId, CancellationToken cancellationToken)
     {
@@ -90,6 +92,7 @@ public sealed class TicketActivityService(
             .Select(u => new PersonSummary(u.Id, u.DisplayName))
             .SingleAsync(cancellationToken);
 
+        await notifier.CommentAddedAsync(ticket.Id, comment.Body, comment.IsInternal, cancellationToken);
         return new CommentResponse(comment.Id, comment.Body, comment.IsInternal, author, currentUser.IsStaff, comment.CreatedAt);
     }
 

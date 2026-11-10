@@ -4,8 +4,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using OpsHub.Api.Auth;
 using OpsHub.Api.Common;
+using OpsHub.Api.Common.Results;
+using OpsHub.Api.Features.Email;
 using OpsHub.Domain.Users;
 
 namespace OpsHub.Api.Features.Auth;
@@ -15,6 +18,8 @@ public sealed partial class AuthController(
     UserManager<AppUser> userManager,
     OpsHubSignInManager signInManager,
     IAntiforgery antiforgery,
+    EmailOutbox outbox,
+    IOptions<EmailOptions> emailOptions,
     ILogger<AuthController> logger) : ApiControllerBase
 {
     /// <summary>
@@ -121,6 +126,92 @@ public sealed partial class AuthController(
         return NoContent();
     }
 
+    /// <summary>What the sign-in page may offer: "Forgot your password?" only when email is set up.</summary>
+    [HttpGet("options")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public AuthOptionsResponse Options() => new(PasswordReset: outbox.Enabled);
+
+    /// <summary>
+    /// Emails a reset link if the address belongs to an active account. The response is the same
+    /// either way, so this can't be used to find out who has an account.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        if (!outbox.Enabled)
+        {
+            return Problem(Error.NotFound("password_reset_unavailable",
+                "Password reset by email isn't set up. Ask an administrator to set a new password for you."));
+        }
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is { IsActive: true })
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+            var link = $"{emailOptions.Value.PublicBaseUrl!.TrimEnd('/')}/reset-password?user={user.Id}&token={Uri.EscapeDataString(token)}";
+            outbox.Enqueue(EmailTemplates.PasswordReset(user.Email!, user.DisplayName, link));
+            LogResetRequested(logger, user.Id);
+        }
+        else
+        {
+            LogResetRequested(logger, null);
+        }
+
+        return Accepted();
+    }
+
+    /// <summary>
+    /// Sets a new password from a reset link. Resetting changes the security stamp, which ends every
+    /// other session and makes the link unusable again; any lockout is lifted.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        var user = await userManager.FindByIdAsync(request.UserId!.Value.ToString());
+        if (user is not { IsActive: true })
+        {
+            return InvalidResetLink();
+        }
+
+        var result = await userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            if (result.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.InvalidToken)))
+            {
+                return InvalidResetLink();
+            }
+
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError("newPassword", error.Description);
+            }
+
+            return ValidationProblem(ModelState);
+        }
+
+        await userManager.SetLockoutEndDateAsync(user, null);
+        await userManager.ResetAccessFailedCountAsync(user);
+        LogPasswordReset(logger, user.Id);
+        return NoContent();
+    }
+
+    // The same answer for an unknown user, a deactivated one and a wrong or expired token.
+    private ActionResult InvalidResetLink() =>
+        Problem(new Error(ErrorType.Validation, "invalid_reset_link",
+            "This reset link is invalid or has expired. Ask for a new one from the sign-in page."));
+
     private ObjectResult SignInFailed() =>
         Problem(
             statusCode: StatusCodes.Status401Unauthorized,
@@ -136,6 +227,12 @@ public sealed partial class AuthController(
 
     // Log user IDs, never passwords, and not the attempted email (it may be a typo of
     // someone else's address or a password pasted into the wrong field).
+    [LoggerMessage(Level = LogLevel.Information, Message = "Password reset requested for user {UserId}")]
+    private static partial void LogResetRequested(ILogger logger, Guid? userId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Password reset for user {UserId}")]
+    private static partial void LogPasswordReset(ILogger logger, Guid userId);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Sign-in failed ({Reason}) for user {UserId}")]
     private static partial void LogSignInFailed(ILogger logger, string reason, Guid? userId);
 

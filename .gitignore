@@ -489,3 +489,6 @@ $RECYCLE.BIN/
 
 # Local, machine-specific tool settings
 .claude/
+
+# Development emails (password-reset links, notifications), written as .eml files
+src/OpsHub.Api/mail-outbox/

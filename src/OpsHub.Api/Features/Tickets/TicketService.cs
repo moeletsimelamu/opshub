@@ -3,6 +3,7 @@ using OpsHub.Api.Auth;
 using OpsHub.Api.Common;
 using OpsHub.Api.Common.Results;
 using OpsHub.Api.Data;
+using OpsHub.Api.Features.Email;
 using OpsHub.Domain.Tickets;
 using OpsHub.Domain.Users;
 
@@ -16,6 +17,7 @@ public sealed partial class TicketService(
     OpsHubDbContext db,
     ICurrentUser currentUser,
     TimeProvider timeProvider,
+    TicketNotifier notifier,
     ILogger<TicketService> logger)
 {
     private DateTime Now => timeProvider.GetUtcNow().UtcDateTime;
@@ -193,7 +195,13 @@ public sealed partial class TicketService(
         }
 
         LogTicketAssigned(logger, ticket.Id, request.AgentId, currentUser.Id);
-        return await SaveAndReloadAsync(ticket, request.Version!.Value, cancellationToken);
+        var saved = await SaveAndReloadAsync(ticket, request.Version!.Value, cancellationToken);
+        if (saved.IsSuccess && request.AgentId is { } agentId)
+        {
+            await notifier.AssignedAsync(ticket.Id, agentId, cancellationToken);
+        }
+
+        return saved;
     }
 
     public async Task<Result<TicketDetails>> ChangeStatusAsync(int id, ChangeStatusRequest request, CancellationToken cancellationToken)
@@ -217,7 +225,13 @@ public sealed partial class TicketService(
         }
 
         LogStatusChanged(logger, ticket.Id, from, ticket.Status, currentUser.Id);
-        return await SaveAndReloadAsync(ticket, request.Version!.Value, cancellationToken);
+        var saved = await SaveAndReloadAsync(ticket, request.Version!.Value, cancellationToken);
+        if (saved.IsSuccess)
+        {
+            await notifier.StatusChangedAsync(ticket.Id, from, ticket.Status, request.Note, cancellationToken);
+        }
+
+        return saved;
     }
 
     // ---------- Shared helpers (also used by comments and user administration) ----------

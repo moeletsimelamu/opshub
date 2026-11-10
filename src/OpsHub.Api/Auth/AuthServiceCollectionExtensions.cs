@@ -38,7 +38,12 @@ public static class AuthServiceCollectionExtensions
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<OpsHubDbContext>()
-            .AddSignInManager<OpsHubSignInManager>();
+            .AddSignInManager<OpsHubSignInManager>()
+            .AddDefaultTokenProviders(); // password reset tokens
+
+        // A reset link works for one hour (the default is a day). It is also single-use: resetting
+        // the password changes the security stamp, which every token is tied to.
+        services.Configure<DataProtectionTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromHours(1));
 
         // SignInManager is resolved as OpsHubSignInManager too, so controllers can use our additions.
         services.AddScoped(sp => (OpsHubSignInManager)sp.GetRequiredService<SignInManager<AppUser>>());
