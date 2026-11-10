@@ -159,6 +159,13 @@
   font-size: var(--text-xs);
 }
 
+/* On the hover/active shade the subtle grey drops to 4.2:1, below WCAG AA's 4.5:1 for small
+   text; the muted grey keeps it above. Found by the automated accessibility check. */
+.who:hover .role,
+.who.active .role {
+  color: var(--color-text-muted);
+}
+
 .sign-out {
   justify-content: flex-start;
   width: 100%;

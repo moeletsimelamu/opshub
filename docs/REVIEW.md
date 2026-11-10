@@ -70,6 +70,12 @@ Target: **WCAG 2.2 level AA**.
 
 **Result after the fixes: 0 axe violations on every screen and dialog, for every role.**
 
+**Found later by the automated check** (added after this review, see [§ 4](#4-limits-of-this-review)):
+
+| # | Finding | WCAG | Severity | Fix |
+|---|---|---|---|---|
+| A5 | In the sidebar, the account link's role text ("Requester") had 4.19:1 contrast on the shade the link gets while the Account page is open, and on hover on every page. The minimum for small text is 4.5:1. This review's scan of the Account page missed it | 1.4.3 Contrast (Minimum) | Medium | On hover and while active, the role text uses the darker "muted" grey (about 5.4:1) |
+
 ### Items axe marks "needs review", and why they pass
 
 | Item | Why axe can't decide | Manual result |
@@ -110,8 +116,9 @@ Honest gaps. None of these were tested, so no claim is made about them:
 - **No screen-reader testing** (NVDA, JAWS, VoiceOver). axe and keyboard checks catch many but
   not all problems a screen-reader user would meet.
 - **Chromium only.** Not tested in Firefox or Safari, or on real phones.
-- **No automated accessibility checks in CI yet.** axe-core is a dev dependency, but the
-  component tests don't run it, so a regression would only be caught by repeating this review.
+- **Automated checks came later.** Since this review, CI runs `scripts/a11y-check.mjs` on every
+  push: axe-core with all its rules on every screen and the main dialogs, as each role and at
+  phone width, against the production build. Any violation fails the build. It found A5 above.
 - **No penetration test.** The security review is a code and configuration review by the
   developer, not an independent test.
 

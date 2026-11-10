@@ -309,6 +309,8 @@ docker start opshub
 6. Restart the container and run the smoke test again: data, keys and the administrator must
    survive, the key must still be the only one (it was decrypted, not replaced), and no second
    administrator is created.
+7. Start a second container in Demo mode and run `scripts/a11y-check.mjs`: axe-core on every
+   screen and the main dialogs, under the production Content-Security-Policy.
 
 **Integration tests** (`tests/OpsHub.Api.IntegrationTests`): first-run setup and the
 bootstrap rules (`FirstRunTests`), serving the Angular app and its caching and security

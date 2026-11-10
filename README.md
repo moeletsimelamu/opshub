@@ -155,7 +155,7 @@ Full design rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 |---|---|
 | Backend | .NET 10 (SDK 10.0.401), ASP.NET Core Web API, EF Core 10, SQLite, ASP.NET Core Identity, OpenAPI with Scalar |
 | Frontend | Angular 21.2, TypeScript 5.9, Angular CDK, self-hosted IBM Plex fonts |
-| Testing | xUnit v3 with `WebApplicationFactory`, Vitest with jsdom, axe-core for manual accessibility checks |
+| Testing | xUnit v3 with `WebApplicationFactory`, Vitest with jsdom, axe-core in headless Chrome (in CI) |
 | Delivery | Docker (multi-stage build), GitHub Actions |
 
 ## Run locally
@@ -252,6 +252,9 @@ pull request:
   3. Run the [smoke test](scripts/smoke-test.sh): health, the page and its security headers, a
      real sign-in.
   4. Restart the container, then run the smoke test again.
+  5. Start a second container with the fictional demo data and run the
+     [accessibility check](scripts/a11y-check.mjs): axe-core on every screen and the main
+     dialogs, as each role and at phone width. Any violation fails the build.
 
 ## Security
 
@@ -294,8 +297,8 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 - **Encrypting the session keys is optional.** Without the certificate described in
   [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-first-deployment) they are stored as plain XML on
   the data volume, which then must be protected.
-- **Accessibility testing** used axe-core and keyboard checks in Chromium. Screen readers and
-  other browsers weren't tested.
+- **Accessibility testing** is automated with axe-core in Chromium, plus manual keyboard checks.
+  Screen readers and other browsers haven't been tested.
 - **`npm audit` reports moderate advisories in `glob` and `minimatch`.** They come from the
   Angular CLI's package-management tooling, which runs only on the developer's machine and
   isn't shipped to browsers. The fix needs newer major versions than the CLI accepts, so it
@@ -305,7 +308,7 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 
 - PostgreSQL and shared key storage, so more than one instance can run.
 - Email notifications and self-service password reset.
-- Automated accessibility checks in CI, and screen-reader testing.
+- Screen-reader testing, and testing in other browsers.
 - A hosted demo.
 
 ## Documentation

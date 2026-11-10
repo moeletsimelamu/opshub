@@ -85,7 +85,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
   container:
-    name: Container · build, run behind HTTPS, smoke test
+    name: Container · build, run behind HTTPS, smoke and accessibility tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [backend, frontend]   # only package code that passed its tests
@@ -166,8 +166,42 @@ jobs:
           bash scripts/smoke-test.sh https://localhost:8443 admin@ci.example
           test "$(docker exec opshub sh -c 'ls /data/keys/key-*.xml | wc -l')" = 1
 
+      # Accessibility: a second container in Demo mode (the fictional Marula data, every role),
+      # behind its own HTTPS proxy. scripts/a11y-check.mjs signs in as each role, opens every
+      # screen and the main dialogs in headless Chrome and runs axe-core; any violation fails.
+      - name: Install axe-core (the web app's dev dependencies)
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/OpsHub.Web/package-lock.json
+
+      - name: Start a demo instance for the accessibility check
+        run: |
+          npm ci --prefix src/OpsHub.Web
+          demo_password="ci-$(openssl rand -hex 16)"
+          echo "::add-mask::$demo_password"
+          echo "A11Y_PASSWORD=$demo_password" >> "$GITHUB_ENV"
+          docker run --detach --name opshub-demo --network opshub-net \
+            --env ASPNETCORE_ENVIRONMENT=Demo \
+            --env Seed__Enabled=true \
+            --env Seed__DemoPassword="$demo_password" \
+            --env ReverseProxy__Enabled=true \
+            --env ReverseProxy__KnownNetworks__0=172.30.0.0/24 \
+            opshub:ci
+          docker run --detach --name demo-proxy --network opshub-net --publish 9443:9443 \
+            caddy:2 caddy reverse-proxy --from https://localhost:9443 --to opshub-demo:8080
+          for attempt in $(seq 1 60); do
+            curl -fsk -o /dev/null https://localhost:9443/health && break
+            sleep 1
+          done
+
+      - name: Accessibility check (axe-core, every screen and role)
+        run: node scripts/a11y-check.mjs https://localhost:9443
+
       - name: Show the container logs
         if: always()
         run: |
           docker logs opshub || true
           docker logs proxy || true
+          docker logs opshub-demo || true
