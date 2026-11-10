@@ -178,7 +178,14 @@ it and a text label, so colour never carries meaning alone. Hover shows the shar
 
 ### Sign in
 Product name, one-line purpose, email + password, a single primary button. Errors appear as one banner
-above the form (the API deliberately doesn't say which field was wrong).
+above the form (the API deliberately doesn't say which field was wrong). When email is set up, a quiet
+"Forgot your password?" link sits under the form.
+
+### Forgot / reset password
+The same centred card as sign-in. *Reset your password* asks for an email and then shows one neutral
+confirmation ("If an account exists for …"), never whether the address is known. *Choose a new password*
+(opened from the email) has the new password and a repeat; an expired or used link is explained in plain
+words with a link to ask for a new one, and success ends with a *Sign in* button.
 
 ### Ticket list (Queue / My tickets)
 1. Page title + count ("Queue · 24 tickets").

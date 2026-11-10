@@ -74,6 +74,29 @@ underscores). Lists use an index: `ReverseProxy__KnownNetworks__0`.
 | `Auth__LoginAttemptsPerMinute` | `10` | Sign-in requests allowed per client IP address per minute |
 | `AllowedHosts` | `*` | Host names the app answers to, e.g. `opshub.example.com` ([§ 9](#9-checklist-before-going-live)) |
 | `ASPNETCORE_HTTP_PORTS` | `8080` | Port inside the container |
+| `Email__Enabled` | `false` | Send password-reset links and ticket notifications |
+| `Email__From` | none | Sender address, e.g. `opshub@yourcompany.example` |
+| `Email__PublicBaseUrl` | none | The address people open OpsHub at; links in emails point here |
+| `Email__Smtp__Host`, `__Port`, `__UseTls` | none, `587`, `true` | Your mail provider's SMTP server (STARTTLS on port 587) |
+| `Email__Smtp__Username` | none | SMTP user name |
+| `Email__Smtp__Password` | none | **Secret.** SMTP password |
+
+**Email** is off unless `Email__Enabled=true`. With it on, people can reset a forgotten password
+(the sign-in page offers it only then) and get ticket notifications. Use your mail provider's
+SMTP relay and keep its password in the environment file:
+
+```bash
+Email__Enabled=true
+Email__From=opshub@yourcompany.example
+Email__PublicBaseUrl=https://opshub.yourcompany.example
+Email__Smtp__Host=smtp.yourprovider.example
+Email__Smtp__Username=<user name from your provider>
+Email__Smtp__Password=<password from your provider>
+```
+
+If email is on but the sender, the link address or the mail server is missing, the app stops at
+startup and says which. Emails are queued and sent in the background, retried twice, and logged
+by type and ticket reference only, never by address.
 
 Secrets belong in an environment file that is never committed (as below) or in the hosting
 platform's secret store, never in `appsettings.json` or in the image.
@@ -278,6 +301,8 @@ docker start opshub
 - [ ] Session keys encrypted with a certificate ([§ 4](#4-first-deployment) step 3), and the
       certificate and its password backed up separately. Without it, anyone who can read
       `/data/keys` or a backup can forge a session cookie.
+- [ ] If email is on: ask for a password-reset link for your own account, and check it arrives
+      and opens your real address.
 - [ ] The smoke test passes against the real address.
 
 ## 10. Limits
@@ -285,8 +310,8 @@ docker start opshub
 - **Single instance.** SQLite and file-based keys support one running container. Scaling out
   needs a server database (EF Core supports PostgreSQL and SQL Server), shared key storage and
   migrations as a separate step.
-- **No outgoing email.** Password resets are done by an administrator; nobody is notified of
-  ticket changes.
+- **Email is send-only.** Replies to notification emails aren't read, and there is no email
+  verification or two-factor sign-in.
 - **Categories** start as five general IT categories; administrators change them under **Categories**.
 - **No image registry.** CI builds and tests the image but doesn't publish it; build it on
   the server as above.

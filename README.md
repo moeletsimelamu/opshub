@@ -41,7 +41,8 @@ figures on workload and resolution time.
   never deleted, so tickets already filed under one keep it.
 - Can't deactivate or demote their own account, so an active administrator always remains.
 
-Every user can change their password. Expired sessions, an unreachable server, editing
+Every user can change their password, and reset a forgotten one through a link sent by email.
+Requesters and agents get emails when a ticket needs them. Expired sessions, an unreachable server, editing
 conflicts and unsaved changes are all handled in the interface.
 
 ## Screenshots
@@ -144,6 +145,17 @@ Full design rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   someone else's change.
 - The interface explains that nothing was overwritten and offers the latest version.
 
+**Email**
+- *Password reset:* the request gets the same answer for every address, so it can't reveal who
+  has an account. The emailed link holds the user's ID (never their email), works once, for one
+  hour, and resetting ends every other session and lifts a lockout.
+- *Notifications* go out only after a change is saved: requesters hear about replies, requests
+  for information and resolutions; agents hear about assignments and requester replies.
+  Internal notes are never emailed, nobody is emailed about their own action, and deactivated
+  accounts get nothing.
+- Emails are plain text, queued and sent in the background, so a slow mail server never slows a
+  request; logs record their type and ticket, never addresses or content.
+
 **Errors**
 - Expected failures are returned as typed results and mapped to RFC 9457 ProblemDetails with
   stable error codes.
@@ -197,6 +209,10 @@ npm start
 Open **http://localhost:4200** and sign in with a demo account. To point the dev server at
 another API address, set `OPSHUB_API_URL` before `npm start`.
 
+> **Emails in development** aren't sent: they're written as `.eml` files to
+> `src/OpsHub.Api/mail-outbox/` (ignored by Git). Open one in any mail program to follow a
+> password-reset link or read a notification.
+
 > `npm ci` works with npm 10.9.2. Only creating a lockfile from scratch hits an npm 10.9.2 bug
 > (`Cannot read properties of null (reading 'edgesOut')`); use `npx npm@11 install` for that.
 
@@ -219,10 +235,10 @@ The script `scripts/Test-SignIn.ps1` walks through the sign-in flow from PowerSh
 ## Testing
 
 ```bash
-# Backend: 63 unit + 159 integration tests
+# Backend: 63 unit + 179 integration tests
 dotnet test
 
-# Frontend: 55 unit and component tests (no browser needed)
+# Frontend: 63 unit and component tests (no browser needed)
 cd src/OpsHub.Web
 npx ng test --watch=false
 ```
@@ -293,7 +309,8 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 
 - **One instance only.** SQLite and file-based session keys don't support running several
   copies.
-- **No email.** No password reset by email, notifications, email verification or MFA.
+- **No email verification or two-factor sign-in.** Email is used for password resets and
+  notifications, sent through a mail provider's SMTP server; replies to those emails aren't read.
 - **Encrypting the session keys is optional.** Without the certificate described in
   [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#4-first-deployment) they are stored as plain XML on
   the data volume, which then must be protected.
@@ -307,7 +324,7 @@ Settings, a first deployment, a public demo, upgrades, backups and a go-live che
 ## Future improvements
 
 - PostgreSQL and shared key storage, so more than one instance can run.
-- Email notifications and self-service password reset.
+- Email verification and two-factor sign-in.
 - Screen-reader testing, and testing in other browsers.
 - A hosted demo.
 

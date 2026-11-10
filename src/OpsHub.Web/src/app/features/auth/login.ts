@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { ApiError } from '../../core/api/api-error';
+import { PasswordResetService } from '../../core/auth/password-reset.service';
 import { SessionService } from '../../core/auth/session.service';
 import { FieldError, focusFirstInvalid, isInvalid } from '../../shared/ui/field-error';
 import { Icon } from '../../shared/ui/icon';
@@ -10,7 +11,7 @@ import { Icon } from '../../shared/ui/icon';
 @Component({
   selector: 'app-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, FieldError, Icon],
+  imports: [ReactiveFormsModule, RouterLink, FieldError, Icon],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
@@ -34,6 +35,13 @@ export class Login {
   protected readonly apiUnavailable = this.session.apiUnavailable;
   protected readonly sessionExpired = computed(() => this.reason() === 'expired' && !this.error());
   protected readonly isInvalid = isInvalid;
+
+  /** "Forgot your password?" is offered only when the server can send the email. */
+  protected readonly resetAvailable = signal(false);
+
+  constructor() {
+    void inject(PasswordResetService).isAvailable().then((available) => this.resetAvailable.set(available));
+  }
 
   protected async submit(): Promise<void> {
     this.form.markAllAsTouched();

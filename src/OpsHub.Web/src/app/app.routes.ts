@@ -18,6 +18,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login').then((m) => m.Login),
   },
   {
+    path: 'forgot-password',
+    canActivate: [signedOutGuard],
+    title: 'Reset your password · OpsHub',
+    loadComponent: () => import('./features/auth/forgot-password').then((m) => m.ForgotPassword),
+  },
+  {
+    // No guard: the emailed link must work even in a browser that is still signed in.
+    path: 'reset-password',
+    title: 'Choose a new password · OpsHub',
+    loadComponent: () => import('./features/auth/reset-password').then((m) => m.ResetPassword),
+  },
+  {
     path: '',
     component: Shell,
     canActivate: [signedInGuard],

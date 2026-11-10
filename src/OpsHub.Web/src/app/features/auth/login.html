@@ -72,6 +72,10 @@
         }
       </button>
     </form>
+
+    @if (resetAvailable()) {
+      <a routerLink="/forgot-password" class="back-link">Forgot your password?</a>
+    }
   </section>
 
   <p class="footnote">

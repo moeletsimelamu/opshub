@@ -83,3 +83,9 @@ form {
     padding: var(--space-5) var(--space-4);
   }
 }
+
+/* "Forgot your password?" and "Back to sign in": quiet links under the form. */
+.back-link {
+  justify-self: center;
+  font-size: var(--text-sm);
+}

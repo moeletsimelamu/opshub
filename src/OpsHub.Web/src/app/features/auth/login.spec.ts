@@ -3,19 +3,23 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
+import { PasswordResetService } from '../../core/auth/password-reset.service';
 import { SessionService } from '../../core/auth/session.service';
 import { Login } from './login';
 
 describe('Login', () => {
   let fixture: ComponentFixture<Login>;
   const signIn = vi.fn();
+  const resetAvailable = vi.fn();
 
   beforeEach(async () => {
     signIn.mockReset();
+    resetAvailable.mockReset().mockResolvedValue(false);
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: SessionService, useValue: { signIn, apiUnavailable: signal(false), homeUrl: () => '/dashboard' } },
+        { provide: PasswordResetService, useValue: { isAvailable: resetAvailable } },
       ],
     });
     fixture = TestBed.createComponent(Login);
@@ -72,5 +76,17 @@ describe('Login', () => {
 
     expect(root().querySelector('.banner-error')?.textContent).toContain('The email or password is incorrect.');
     expect(root().querySelector<HTMLInputElement>('#password')!.value).toBe('');
+  });
+
+  it('offers "Forgot your password?" only when email is set up', async () => {
+    expect(root().querySelector('a[href="/forgot-password"]')).toBeNull();
+
+    resetAvailable.mockResolvedValue(true);
+    fixture = TestBed.createComponent(Login);
+    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r));
+    await fixture.whenStable();
+
+    expect(root().querySelector('a[href="/forgot-password"]')?.textContent?.trim()).toBe('Forgot your password?');
   });
 });

@@ -142,6 +142,7 @@ match the planned ticket-list filters and default sort.
 | `Seed:Enabled` | `false` | `true` | Seeds fictional data into an empty database. Refused in Production. |
 | `Seed:DemoPassword` | *(unset)* | set via user-secrets | Password for every demo account. Never committed. |
 | `Auth:LoginAttemptsPerMinute` | `10` | same | Login requests allowed per client IP per minute. |
+| `Email:Enabled`, `From`, `PublicBaseUrl`, `Smtp:*` | off | on, to a folder (`PickupDirectory`) | Password-reset links and notifications; see DEPLOYMENT.md § 3. |
 | `Bootstrap:AdminEmail`, `AdminPassword`, `AdminDisplayName` | *(unset)* | unset | First administrator of a new installation. |
 | `ReverseProxy:Enabled`, `KnownProxies`, `KnownNetworks` | off | off | Which proxies may report the client's address and scheme. |
 | `DataProtection:KeysDirectory` | *(user profile)* | same | Where session-signing keys are kept; `/data/keys` in the container. |
@@ -187,6 +188,7 @@ sequenceDiagram
 | Account enumeration | Identical 401 response for unknown email, wrong password, locked or inactive account; unknown emails still run a password-hash check | Neither the message nor the response time reveals whether an email has an account. |
 | Revocation | Deactivation, role change and password change rotate the security stamp; sessions are re-validated every minute | Changes take effect within a minute, not when the cookie expires. |
 | Admin safety | An administrator cannot deactivate themselves or remove their own Administrator role | Since only active admins can call the endpoint, at least one active admin always remains. |
+| Password reset | `forgot-password` answers 202 for every address; the email link carries the user ID and an Identity token valid for one hour, tied to the security stamp, so it works once; resetting ends other sessions and lifts a lockout; both endpoints share the sign-in rate limit | No account discovery, no personal data in URLs, and a used link is worthless |
 | Logging | Sign-in success and failure logged with user ID and reason; never passwords or attempted emails | Useful for auditing without leaking secrets or personal data. |
 
 ### Ticket data protection
@@ -242,6 +244,9 @@ The review findings and how each was verified: [REVIEW.md](REVIEW.md). Deploymen
 | POST | `/api/auth/logout` | Signed in | 204 |
 | GET | `/api/auth/me` | Signed in | 200 current user |
 | POST | `/api/auth/change-password` | Signed in | 204, or 400 with field errors |
+| GET | `/api/auth/options` | Public | 200 `{ passwordReset }`: whether email is set up |
+| POST | `/api/auth/forgot-password` | Public, rate-limited | 202 for every address, or 404 `password_reset_unavailable` when email is off |
+| POST | `/api/auth/reset-password` | Public, rate-limited | 204, 400 `invalid_reset_link`, or 400 with password field errors |
 | GET | `/api/users?search=&role=&isActive=&page=&pageSize=` | Administrator | 200 paged users |
 | GET | `/api/users/{id}` | Administrator | 200 or 404 |
 | POST | `/api/users` | Administrator | 201 + `Location`, 400, or 409 `email_in_use` |
@@ -291,6 +296,10 @@ tests that need no database.
 - Unassigning a ticket that is *In Progress* or *Waiting* returns it to *Open*.
 - Deactivating an agent, or moving them to another role, returns their unfinished tickets to the queue in
   the same transaction.
+- Email notifications are sent only after a change is saved, by a background outbox. The requester hears
+  about replies from support (never internal notes), *Waiting for Information*, *Resolved* and *Closed*; the
+  assigned agent hears about being assigned by someone else, requester replies and reopening. Nobody is
+  emailed about their own action, and deactivated accounts are never emailed.
 - Requesters may edit title, description and category only while their ticket is *Open*; priority
   changes after creation are staff-only. Closed tickets are read-only for everyone.
 

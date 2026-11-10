@@ -147,6 +147,10 @@ try {
   await send('Network.clearBrowserCookies');
   await go('/login');
   await scan('sign-in page');
+  await go('/forgot-password');
+  await scan('forgot password');
+  await go('/reset-password?user=00000000-0000-0000-0000-000000000000&token=example');
+  await scan('reset password');
 
   // Requester
   await signIn('thandi@marula.example');
